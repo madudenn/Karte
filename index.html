@@ -2964,7 +2964,14 @@ async function savePositions() {
 
     } catch (error) {
         console.error("Supabase: Speichern fehlgeschlagen.", error);
-        alert("Die Änderung konnte nicht gespeichert werden. Prüfe die Supabase-Berechtigungen.");
+
+        alert(
+            "Speichern fehlgeschlagen.\n\n" +
+            "Fehler: " + (error.message || "Unbekannter Fehler") +
+            "\n\nCode: " + (error.code || "—") +
+            "\n\nDetails: " + (error.details || "—") +
+            "\n\nHint: " + (error.hint || "—")
+        );
     }
 }
 
