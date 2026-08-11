@@ -1507,6 +1507,8 @@
 </div>
 
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 
 
@@ -2642,7 +2644,7 @@ function duplicateSelectedPoint() {
    PUNKT LÖSCHEN
 ========================================================= */
 
-function deleteSelectedPoint() {
+async function deleteSelectedPoint() {
 
     if (!selectedMarker) {
 
@@ -2678,18 +2680,17 @@ function deleteSelectedPoint() {
     }
 
 
-    selectedMarker.remove();
+    const deletedId = selectedMarker.dataset.id;
 
+    selectedMarker.remove();
 
     selectedMarker =
         null;
 
-
     updateAdminPanel();
-
     updateLegend();
 
-    savePositions();
+    await deletePointFromDatabase(deletedId);
 
 }
 
@@ -2788,289 +2789,275 @@ function copyCoordinates() {
 
 
 /* =========================================================
-   PUNKTE SPEICHERN
+   SUPABASE
 ========================================================= */
 
-function savePositions() {
+const SUPABASE_URL = "https://bhkkzabaitdimkjatwup.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_WjTtWipuIYDxNC86fEnLXw_dtx5CA_Y";
+const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+);
+
+let databaseReady = false;
+let loadingPoints = false;
+let realtimeChannel = null;
+
+/* =========================================================
+   SUPABASE REALTIME
+   Neue / geänderte / gelöschte Punkte werden automatisch
+   an bereits geöffnete Webseiten verteilt.
+========================================================= */
+
+function startRealtimeSync() {
+
+    if (realtimeChannel) return;
+
+    realtimeChannel =
+        supabaseClient
+            .channel("route-points-live")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "route_points"
+                },
+                function(payload) {
+
+                    const point =
+                        payload.eventType === "DELETE"
+                            ? payload.old
+                            : payload.new;
+
+                    if (!point || !point.id) return;
+
+                    if (payload.eventType === "DELETE") {
+
+                        const marker =
+                            document.querySelector(
+                                `.marker[data-id="${CSS.escape(point.id)}"]`
+                            );
+
+                        if (marker) marker.remove();
+
+                    } else {
+
+                        const existing =
+                            document.querySelector(
+                                `.marker[data-id="${CSS.escape(point.id)}"]`
+                            );
+
+                        if (existing) existing.remove();
+
+                        createMarkerFromData(point);
+
+                        const marker =
+                            document.querySelector(
+                                `.marker[data-id="${CSS.escape(point.id)}"]`
+                            );
+
+                        if (marker && categoryState[point.category] === false) {
+                            marker.style.display = "none";
+                        }
+                    }
+
+                    updateLegend();
+                }
+            )
+            .subscribe(function(status) {
+                console.log("Supabase Realtime:", status);
+            });
+}
+
+/* =========================================================
+   PUNKTE AUS DER DATENBANK LADEN
+========================================================= */
+
+async function loadSavedPositions() {
+
+    if (loadingPoints) return;
+    loadingPoints = true;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from("route_points")
+            .select("id,name,category,x,y,color,icon,updated_at")
+            .order("id");
+
+        if (error) throw error;
+
+        document
+            .querySelectorAll(".marker")
+            .forEach(function(marker) {
+                marker.remove();
+            });
+
+        data.forEach(function(point) {
+            createMarkerFromData(point);
+        });
+
+        databaseReady = true;
+        updateLegend();
+        startRealtimeSync();
+        console.log("Routenpunkte aus Supabase geladen:", data);
+
+    } catch (error) {
+        console.error("Supabase: Punkte konnten nicht geladen werden.", error);
+        alert("Die Routenpunkte konnten nicht aus der Datenbank geladen werden. Bitte prüfe die Supabase-Konfiguration.");
+        updateLegend();
+
+    } finally {
+        loadingPoints = false;
+    }
+}
+
+/* =========================================================
+   PUNKTE IN DER DATENBANK SPEICHERN
+========================================================= */
+
+async function savePositions() {
 
     const markers =
-        document.querySelectorAll(
-            ".marker"
-        );
-
+        document.querySelectorAll(".marker");
 
     const data = [];
 
+    markers.forEach(function(marker, index) {
 
-    markers.forEach(
-        function(marker, index) {
+        const label =
+            marker.querySelector(".marker-label span:last-child");
 
-            const label =
-                marker.querySelector(
-                    ".marker-label span:last-child"
-                );
+        const icon =
+            marker.querySelector(".marker-label-icon");
 
+        const color =
+            normalizeColor(
+                marker.style.getPropertyValue("--marker-color") ||
+                "#28c7c0"
+            );
 
-            const icon =
-                marker.querySelector(
-                    ".marker-label-icon"
-                );
+        data.push({
+            id: marker.dataset.id || "marker-" + index,
+            x: parseFloat(marker.style.left),
+            y: parseFloat(marker.style.top),
+            category: marker.dataset.category || "koks",
+            color: color,
+            name: label ? label.textContent.trim() : "Punkt",
+            icon: icon ? icon.textContent.trim() : "📍"
+        });
+    });
 
-
-            const color =
-                normalizeColor(
-                    marker.style.getPropertyValue(
-                        "--marker-color"
-                    ) ||
-                    "#28c7c0"
-                );
-
-
-            data.push({
-
-                id:
-                    marker.dataset.id ||
-                    "marker-" + index,
-
-                x:
-                    parseFloat(
-                        marker.style.left
-                    ),
-
-                y:
-                    parseFloat(
-                        marker.style.top
-                    ),
-
-                category:
-                    marker.dataset.category ||
-                    "koks",
-
-                color:
-                    color,
-
-                name:
-                    label
-                        ? label.textContent.trim()
-                        : "Punkt",
-
-                icon:
-                    icon
-                        ? icon.textContent.trim()
-                        : "📍"
-
-            });
-
-        }
-    );
-
-
-    localStorage.setItem(
-        "routeMapMarkers",
-        JSON.stringify(data)
-    );
-
-
-    console.log(
-        "Routenkarte gespeichert:",
-        data
-    );
-
-}
-
-
-/* =========================================================
-   GESPEICHERTE PUNKTE LADEN
-========================================================= */
-
-function loadSavedPositions() {
-
-    const saved =
-        localStorage.getItem(
-            "routeMapMarkers"
-        );
-
-
-    /*
-        Keine gespeicherten Daten:
-        HTML-Standardpunkte behalten.
-    */
-
-    if (!saved) {
-
-        updateLegend();
-
+    if (!databaseReady) {
+        console.warn("Supabase ist noch nicht bereit. Speichern abgebrochen.");
         return;
-
     }
-
-
-    let data;
-
 
     try {
+        const { error } = await supabaseClient
+            .from("route_points")
+            .upsert(data, { onConflict: "id" });
 
-        data =
-            JSON.parse(
-                saved
-            );
+        if (error) throw error;
+
+        console.log("Routenkarte in Supabase gespeichert:", data);
 
     } catch (error) {
-
-        console.error(
-            "Gespeicherte Punkte konnten nicht geladen werden.",
-            error
-        );
-
-        return;
-
+        console.error("Supabase: Speichern fehlgeschlagen.", error);
+        alert("Die Änderung konnte nicht gespeichert werden. Prüfe die Supabase-Berechtigungen.");
     }
-
-
-    /*
-        Vorhandene Marker entfernen.
-    */
-
-    document
-        .querySelectorAll(
-            ".marker"
-        )
-        .forEach(
-            function(marker) {
-
-                marker.remove();
-
-            }
-        );
-
-
-    data.forEach(
-        function(point) {
-
-            createMarkerFromData(
-                point
-            );
-
-        }
-    );
-
-
-    updateLegend();
-
 }
 
+/* =========================================================
+   EINEN PUNKT AUS DER DATENBANK LÖSCHEN
+========================================================= */
+
+async function deletePointFromDatabase(id) {
+
+    if (!id) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from("route_points")
+            .delete()
+            .eq("id", id);
+
+        if (error) throw error;
+
+    } catch (error) {
+        console.error("Supabase: Punkt konnte nicht gelöscht werden.", error);
+        alert("Der Punkt konnte nicht aus der Datenbank gelöscht werden.");
+    }
+}
+
+/* =========================================================
+   RESET
+========================================================= */
+
+async function resetSavedPositions() {
+
+    if (!confirm("Alle Punkte aus der Online-Datenbank löschen und die ursprünglichen Punkte wiederherstellen?")) {
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from("route_points")
+            .delete()
+            .neq("id", "__never_match__");
+
+        if (error) throw error;
+
+        location.reload();
+
+    } catch (error) {
+        console.error("Supabase: Zurücksetzen fehlgeschlagen.", error);
+        alert("Die Datenbank konnte nicht zurückgesetzt werden.");
+    }
+}
 
 /* =========================================================
    MARKER AUS DATEN ERSTELLEN
 ========================================================= */
 
-function createMarkerFromData(
-    point
-) {
+function createMarkerFromData(point) {
 
     const marker =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
+    marker.className = "marker";
 
-    marker.className =
-        "marker";
+    marker.dataset.id = point.id;
+    marker.dataset.category = point.category || "koks";
 
-
-    marker.dataset.id =
-        point.id;
-
-
-    marker.dataset.category =
-        point.category ||
-        "koks";
-
-
-    marker.style.left =
-        point.x +
-        "px";
-
-
-    marker.style.top =
-        point.y +
-        "px";
-
+    marker.style.left = point.x + "px";
+    marker.style.top = point.y + "px";
 
     marker.style.setProperty(
         "--marker-color",
-        point.color ||
-        "#28c7c0"
+        point.color || "#28c7c0"
     );
 
-
     marker.innerHTML = `
-
         <div class="marker-ring"></div>
-
         <div class="marker-dot"></div>
-
         <div class="marker-label">
-
             <span class="marker-label-icon">
                 ${point.icon || "📍"}
             </span>
-
             <span></span>
-
         </div>
-
     `;
 
-
     const label =
-        marker.querySelector(
-            ".marker-label span:last-child"
-        );
-
+        marker.querySelector(".marker-label span:last-child");
 
     if (label) {
-
-        label.textContent =
-            point.name ||
-            "Punkt";
-
+        label.textContent = point.name || "Punkt";
     }
 
-
-    world.appendChild(
-        marker
-    );
-
+    world.appendChild(marker);
 }
-
-
-/* =========================================================
-   RESET GESPEICHERTE DATEN
-========================================================= */
-
-function resetSavedPositions() {
-
-    if (
-        !confirm(
-            "Alle gespeicherten Änderungen löschen und die ursprünglichen Punkte wiederherstellen?"
-        )
-    ) {
-
-        return;
-
-    }
-
-
-    localStorage.removeItem(
-        "routeMapMarkers"
-    );
-
-
-    location.reload();
-
-}
-
 
 /* =========================================================
    KATEGORIEN
@@ -3217,16 +3204,55 @@ document.addEventListener(
 );
 
 
-function enterAdminMode() {
+async function enterAdminMode() {
+
+    const { data, error } =
+        await supabaseClient.auth.getSession();
+
+    if (error) {
+        console.error("Supabase Auth Fehler:", error);
+        alert("Die Anmeldung konnte nicht geprüft werden.");
+        return;
+    }
+
+    let session = data.session;
+
+    if (!session) {
+
+        const email = prompt("Admin-E-Mail eingeben:");
+
+        if (!email) return;
+
+        const password = prompt("Admin-Passwort eingeben:");
+
+        if (!password) return;
+
+        const result =
+            await supabaseClient.auth.signInWithPassword({
+                email: email.trim(),
+                password: password
+            });
+
+        if (result.error) {
+            console.error("Login fehlgeschlagen:", result.error);
+            alert("Login fehlgeschlagen: " + result.error.message);
+            return;
+        }
+
+        session = result.data.session;
+    }
+
+    if (!session) {
+        alert("Keine gültige Admin-Anmeldung gefunden.");
+        return;
+    }
 
     adminMode =
         true;
 
-
     document.body.classList.add(
         "admin-active"
     );
-
 
     updateAdminPanel();
 
