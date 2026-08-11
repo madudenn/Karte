@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="de">
 
 <head>
@@ -7,76 +6,2947 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Routenkarte</title>
 
-```
-<style>
-    * {
-        box-sizing: border-box;
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #090c10;
+            color: white;
+            font-family: Inter, Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            user-select: none;
+        }
+
+        #app {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #090c10;
+        }
+
+        #viewport {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            cursor: grab;
+            background: #090c10;
+        }
+
+        #viewport.dragging {
+            cursor: grabbing;
+        }
+
+        #world {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 9126px;
+            height: 7022px;
+            transform-origin: 0 0;
+            will-change: transform;
+        }
+
+        #map {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 9126px;
+            height: 7022px;
+            display: block;
+            max-width: none;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        #mapShade {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 9126px;
+            height: 7022px;
+            pointer-events: none;
+            background: linear-gradient(
+                to bottom,
+                rgba(0, 0, 0, 0.05),
+                rgba(0, 0, 0, 0.12)
+            );
+        }
+
+        /* =========================================================
+           MARKER
+        ========================================================= */
+
+        .marker {
+            position: absolute;
+            width: 0;
+            height: 0;
+            z-index: 20;
+            cursor: pointer;
+
+            --marker-color: #28c7c0;
+            --marker-scale: 1;
+            --marker-hover-scale: 1.16;
+
+            scale: var(--marker-scale);
+            transform-origin: 0 0;
+        }
+
+        /*
+         * Die eigentliche Markierung bleibt bewusst klein.
+         * Der Glow sorgt für Sichtbarkeit, nicht die Größe.
+         */
+
+        .marker-ring {
+            position: absolute;
+            left: -9px;
+            top: -9px;
+            width: 18px;
+            height: 18px;
+
+            border: 2px solid var(--marker-color);
+            border-radius: 50%;
+
+            opacity: 0.9;
+
+            box-shadow:
+                0 0 5px var(--marker-color),
+                0 0 12px rgba(40, 199, 192, 0.55);
+
+            transition:
+                transform 0.16s ease,
+                opacity 0.16s ease,
+                box-shadow 0.16s ease;
+        }
+
+        /*
+         * Weicher Halo.
+         * Er macht den Punkt sichtbar, ohne die Karte mit einer
+         * großen Fläche zu verdecken.
+         */
+
+        .marker-ring::before {
+            content: "";
+            position: absolute;
+            left: -6px;
+            top: -6px;
+            width: 26px;
+            height: 26px;
+
+            border-radius: 50%;
+
+            box-shadow:
+                0 0 10px var(--marker-color),
+                0 0 20px rgba(40, 199, 192, 0.38);
+
+            opacity: 0.7;
+
+            animation: markerPulse 2.2s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        /*
+         * Exakter Mittelpunkt.
+         * Der bleibt klein, damit man immer noch genau erkennen kann,
+         * wo der eigentliche Kartenpunkt liegt.
+         */
+
+        .marker-dot {
+            position: absolute;
+            left: -4px;
+            top: -4px;
+            width: 8px;
+            height: 8px;
+
+            border-radius: 50%;
+            background: var(--marker-color);
+
+            border: 1.5px solid rgba(255, 255, 255, 0.95);
+
+            box-shadow:
+                0 0 6px var(--marker-color),
+                0 0 10px var(--marker-color);
+
+            z-index: 3;
+        }
+
+        @keyframes markerPulse {
+            0%,
+            100% {
+                transform: scale(0.82);
+                opacity: 0.42;
+            }
+
+            50% {
+                transform: scale(1.05);
+                opacity: 0.82;
+            }
+        }
+
+        /* =========================================================
+           KATEGORIE-FORMEN
+        ========================================================= */
+
+        /*
+         * KOKS = Kreis
+         */
+        .marker.category-koks .marker-ring {
+            border-radius: 50%;
+        }
+
+        /*
+         * OPIUM = Raute
+         */
+        .marker.category-opium .marker-ring {
+            border-radius: 2px;
+            transform: rotate(45deg);
+        }
+
+        /*
+         * PILZ = Hexagon
+         */
+        .marker.category-pilz .marker-ring {
+            border-radius: 0;
+            clip-path: polygon(
+                25% 3%,
+                75% 3%,
+                98% 50%,
+                75% 97%,
+                25% 97%,
+                2% 50%
+            );
+        }
+
+        /*
+         * Hover:
+         * Der gesamte Marker wird nur leicht größer.
+         * Der exakte Mittelpunkt bleibt trotzdem klar erkennbar.
+         */
+
+        .marker:hover {
+            scale: var(--marker-hover-scale);
+            z-index: 1000;
+        }
+
+        .marker:hover .marker-ring {
+            opacity: 1;
+
+            box-shadow:
+                0 0 7px var(--marker-color),
+                0 0 16px var(--marker-color),
+                0 0 24px rgba(40, 199, 192, 0.35);
+        }
+
+        .marker:hover .marker-dot {
+            box-shadow:
+                0 0 8px var(--marker-color),
+                0 0 14px var(--marker-color);
+        }
+
+        /* =========================================================
+           LABEL
+        ========================================================= */
+
+        .marker-label {
+            position: absolute;
+            left: 17px;
+            top: -17px;
+
+            display: flex;
+            align-items: center;
+            gap: 7px;
+
+            padding: 6px 9px;
+
+            white-space: nowrap;
+
+            background: rgba(10, 13, 18, 0.92);
+
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 7px;
+
+            color: white;
+            font-size: 12px;
+
+            box-shadow:
+                0 5px 20px rgba(0, 0, 0, 0.35);
+
+            pointer-events: none;
+
+            opacity: 0.92;
+
+            transition:
+                opacity 0.15s ease,
+                transform 0.15s ease;
+        }
+
+        .marker-label-category {
+            width: 8px;
+            height: 8px;
+            flex: 0 0 8px;
+
+            background: var(--marker-color);
+
+            box-shadow:
+                0 0 6px var(--marker-color);
+        }
+
+        .marker.category-koks .marker-label-category {
+            border-radius: 50%;
+        }
+
+        .marker.category-opium .marker-label-category {
+            border-radius: 1px;
+            transform: rotate(45deg);
+        }
+
+        .marker.category-pilz .marker-label-category {
+            clip-path: polygon(
+                25% 0,
+                75% 0,
+                100% 50%,
+                75% 100%,
+                25% 100%,
+                0 50%
+            );
+        }
+
+        /* =========================================================
+           ADMIN AUSGEWÄHLT
+        ========================================================= */
+
+        .marker.admin-selected {
+            z-index: 9999;
+        }
+
+        .marker.admin-selected .marker-ring {
+            transform: scale(1.35);
+            opacity: 1;
+
+            border-color: white;
+
+            box-shadow:
+                0 0 0 2px rgba(255, 255, 255, 0.22),
+                0 0 8px var(--marker-color),
+                0 0 20px var(--marker-color),
+                0 0 32px rgba(255, 255, 255, 0.18);
+        }
+
+        .marker.admin-selected .marker-dot {
+            transform: scale(1.2);
+
+            box-shadow:
+                0 0 8px white,
+                0 0 16px var(--marker-color);
+        }
+
+        .marker.admin-selected .marker-ring::before {
+            animation-duration: 1.3s;
+            opacity: 1;
+        }
+
+        /* =========================================================
+           HEADER
+        ========================================================= */
+
+        .header {
+            position: absolute;
+            left: 25px;
+            top: 25px;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .title {
+            font-size: 30px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            text-shadow: 0 3px 15px rgba(0, 0, 0, 0.8);
+        }
+
+        .subtitle {
+            margin-top: 4px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.65);
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+        }
+
+        /* =========================================================
+           LEGENDE
+        ========================================================= */
+
+        .legend {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            z-index: 100;
+
+            width: 230px;
+            padding: 15px;
+
+            border-radius: 10px;
+
+            background: rgba(10, 13, 18, 0.91);
+
+            border: 1px solid rgba(255, 255, 255, 0.09);
+
+            box-shadow:
+                0 12px 40px rgba(0, 0, 0, 0.35);
+
+            backdrop-filter: blur(12px);
+        }
+
+        .legend-title {
+            margin-bottom: 12px;
+
+            font-size: 12px;
+            font-weight: 800;
+
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            min-height: 42px;
+            padding: 7px 8px;
+
+            border-radius: 7px;
+
+            cursor: pointer;
+
+            transition:
+                background 0.15s ease,
+                opacity 0.15s ease;
+        }
+
+        .legend-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .legend-item.disabled {
+            opacity: 0.35;
+        }
+
+        .legend-icon {
+            width: 30px;
+            height: 30px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border-radius: 6px;
+
+            background: rgba(255, 255, 255, 0.05);
+
+            font-size: 16px;
+        }
+
+        .legend-name {
+            flex: 1;
+
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .legend-count {
+            min-width: 25px;
+
+            text-align: right;
+
+            font-size: 12px;
+
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* =========================================================
+           CONTROLS
+        ========================================================= */
+
+        .controls {
+            position: absolute;
+            right: 25px;
+            bottom: 25px;
+            z-index: 100;
+
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .control-btn {
+            width: 44px;
+            height: 44px;
+
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+
+            background: rgba(10, 13, 18, 0.92);
+
+            color: white;
+
+            font-size: 22px;
+
+            cursor: pointer;
+
+            box-shadow:
+                0 8px 25px rgba(0, 0, 0, 0.3);
+
+            transition:
+                background 0.15s ease,
+                transform 0.1s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .control-btn:active {
+            transform: scale(0.94);
+        }
+
+        /* =========================================================
+           ADMIN
+        ========================================================= */
+
+        .admin-panel {
+            position: absolute;
+            left: 25px;
+            bottom: 25px;
+            z-index: 5000;
+
+            width: 310px;
+            max-height: calc(100vh - 50px);
+
+            overflow-y: auto;
+
+            padding: 17px;
+
+            border-radius: 11px;
+
+            background: rgba(10, 13, 18, 0.97);
+
+            border: 1px solid rgba(255, 255, 255, 0.12);
+
+            box-shadow:
+                0 15px 50px rgba(0, 0, 0, 0.55);
+
+            backdrop-filter: blur(16px);
+
+            display: none;
+        }
+
+        body.admin-active .admin-panel {
+            display: block;
+        }
+
+        .admin-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            margin-bottom: 15px;
+        }
+
+        .admin-title {
+            font-size: 17px;
+            font-weight: 800;
+        }
+
+        .admin-badge {
+            padding: 4px 7px;
+
+            border-radius: 5px;
+
+            background: rgba(40, 199, 192, 0.15);
+
+            border: 1px solid rgba(40, 199, 192, 0.35);
+
+            color: #28c7c0;
+
+            font-size: 9px;
+            font-weight: 800;
+
+            letter-spacing: 0.1em;
+        }
+
+        .admin-info {
+            padding: 11px;
+            margin-bottom: 14px;
+
+            border-radius: 7px;
+
+            background: rgba(255, 255, 255, 0.035);
+
+            color: rgba(255, 255, 255, 0.6);
+
+            font-size: 11px;
+            line-height: 1.8;
+        }
+
+        .admin-info strong {
+            color: white;
+        }
+
+        .admin-editor {
+            margin-top: 5px;
+
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .admin-editor label {
+            margin-top: 4px;
+
+            font-size: 10px;
+
+            color: #89919c;
+
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .admin-editor input,
+        .admin-editor select {
+            width: 100%;
+            height: 36px;
+
+            padding: 0 10px;
+
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 6px;
+
+            background: #11151b;
+
+            color: white;
+
+            outline: none;
+
+            font-family: inherit;
+        }
+
+        .admin-editor input:focus,
+        .admin-editor select:focus {
+            border-color: #28c7c0;
+        }
+
+        .color-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .color-row input[type="color"] {
+            width: 45px;
+            padding: 3px;
+            cursor: pointer;
+        }
+
+        .color-row input[type="text"] {
+            flex: 1;
+        }
+
+        .admin-buttons {
+            display: flex;
+            gap: 7px;
+            margin-top: 8px;
+        }
+
+        .admin-button {
+            flex: 1;
+
+            min-height: 35px;
+
+            padding: 7px 9px;
+
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 6px;
+
+            background: rgba(255, 255, 255, 0.045);
+
+            color: white;
+
+            cursor: pointer;
+
+            font-size: 11px;
+            font-family: inherit;
+
+            transition:
+                background 0.15s ease,
+                border-color 0.15s ease;
+        }
+
+        .admin-button:hover {
+            background: rgba(255, 255, 255, 0.09);
+        }
+
+        .admin-button.primary {
+            border-color: rgba(40, 199, 192, 0.35);
+
+            background: rgba(40, 199, 192, 0.1);
+
+            color: #55e4de;
+        }
+
+        .admin-button.primary:hover {
+            background: rgba(40, 199, 192, 0.17);
+        }
+
+        .admin-button.danger {
+            border-color: rgba(220, 70, 80, 0.35);
+            color: #ff6975;
+        }
+
+        .admin-button.danger:hover {
+            background: rgba(220, 70, 80, 0.12);
+        }
+
+        .admin-hint {
+            margin-top: 14px;
+            padding-top: 13px;
+
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+
+            color: rgba(255, 255, 255, 0.42);
+
+            font-size: 10px;
+            line-height: 1.55;
+        }
+
+        .admin-hint strong {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        body.admin-active #viewport {
+            cursor: crosshair;
+        }
+
+        body.admin-active .marker {
+            cursor: move;
+        }
+
+        .admin-panel::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .admin-panel::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .admin-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+
+        @media (max-width: 700px) {
+            .header {
+                left: 15px;
+                top: 15px;
+            }
+
+            .legend {
+                top: 15px;
+                right: 15px;
+                width: 190px;
+            }
+
+            .admin-panel {
+                left: 15px;
+                bottom: 15px;
+                width: calc(100vw - 30px);
+                max-height: 70vh;
+            }
+
+            .controls {
+                right: 15px;
+                bottom: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="app">
+
+    <div id="viewport">
+
+        <div id="world">
+
+            <img
+                id="map"
+                src="assets/map.png"
+                width="9126"
+                height="7022"
+                draggable="false"
+                alt="Karte"
+            >
+
+            <div id="mapShade"></div>
+
+        </div>
+
+    </div>
+
+    <div class="header">
+
+        <div class="title">
+            Routenkarte
+        </div>
+
+        <div class="subtitle">
+            Interaktive Übersicht
+        </div>
+
+    </div>
+
+    <div class="legend">
+
+        <div class="legend-title">
+            Routen
+        </div>
+
+        <div
+            class="legend-item"
+            data-category="koks"
+            onclick="toggleCategory('koks')"
+        >
+            <div class="legend-icon">●</div>
+            <div class="legend-name">Koks</div>
+            <div class="legend-count">0</div>
+        </div>
+
+        <div
+            class="legend-item"
+            data-category="opium"
+            onclick="toggleCategory('opium')"
+        >
+            <div class="legend-icon">◆</div>
+            <div class="legend-name">Opium</div>
+            <div class="legend-count">0</div>
+        </div>
+
+        <div
+            class="legend-item"
+            data-category="pilz"
+            onclick="toggleCategory('pilz')"
+        >
+            <div class="legend-icon">⬡</div>
+            <div class="legend-name">Pilz</div>
+            <div class="legend-count">0</div>
+        </div>
+
+    </div>
+
+    <div class="controls">
+
+        <button
+            class="control-btn"
+            onclick="zoomIn()"
+            title="Hineinzoomen"
+        >
+            +
+        </button>
+
+        <button
+            class="control-btn"
+            onclick="zoomOut()"
+            title="Herauszoomen"
+        >
+            −
+        </button>
+
+        <button
+            class="control-btn"
+            onclick="resetView()"
+            title="Ansicht zurücksetzen"
+        >
+            ↺
+        </button>
+
+    </div>
+
+    <div class="admin-panel">
+
+        <div class="admin-header">
+
+            <div class="admin-title">
+                Karten-Admin
+            </div>
+
+            <div class="admin-badge">
+                ADMIN
+            </div>
+
+        </div>
+
+        <div class="admin-info">
+
+            Ausgewählt:
+            <strong id="adminSelected">
+                Kein Punkt
+            </strong>
+
+            <br>
+
+            X:
+            <strong id="adminX">—</strong>
+
+            &nbsp;&nbsp;
+
+            Y:
+            <strong id="adminY">—</strong>
+
+        </div>
+
+        <div class="admin-editor">
+
+            <label for="adminName">
+                Name
+            </label>
+
+            <input
+                type="text"
+                id="adminName"
+                placeholder="Punktname"
+            >
+
+            <label for="adminCategory">
+                Kategorie
+            </label>
+
+            <select id="adminCategory">
+
+                <option value="koks">
+                    ● Koks
+                </option>
+
+                <option value="opium">
+                    ◆ Opium
+                </option>
+
+                <option value="pilz">
+                    ⬡ Pilz
+                </option>
+
+            </select>
+
+            <label for="adminColor">
+                Farbe
+            </label>
+
+            <div class="color-row">
+
+                <input
+                    type="color"
+                    id="adminColor"
+                    value="#28c7c0"
+                >
+
+                <input
+                    type="text"
+                    id="adminColorText"
+                    value="#28c7c0"
+                    maxlength="7"
+                >
+
+            </div>
+
+        </div>
+
+        <div class="admin-buttons">
+
+            <button
+                class="admin-button primary"
+                onclick="applyPointChanges()"
+            >
+                Änderungen übernehmen
+            </button>
+
+        </div>
+
+        <div class="admin-buttons">
+
+            <button
+                class="admin-button"
+                onclick="createNewPoint()"
+            >
+                + Neuer Punkt
+            </button>
+
+            <button
+                class="admin-button"
+                onclick="duplicateSelectedPoint()"
+            >
+                Punkt kopieren
+            </button>
+
+        </div>
+
+        <div class="admin-buttons">
+
+            <button
+                class="admin-button danger"
+                onclick="deleteSelectedPoint()"
+            >
+                Punkt löschen
+            </button>
+
+        </div>
+
+        <div class="admin-buttons">
+
+            <button
+                class="admin-button primary"
+                onclick="copyCoordinates()"
+            >
+                Koordinaten kopieren
+            </button>
+
+            <button
+                class="admin-button"
+                onclick="savePositions()"
+            >
+                Speichern
+            </button>
+
+        </div>
+
+        <div class="admin-buttons">
+
+            <button
+                class="admin-button"
+                onclick="resetSavedPositions()"
+            >
+                Zurücksetzen
+            </button>
+
+            <button
+                class="admin-button"
+                onclick="exitAdminMode()"
+            >
+                Schließen
+            </button>
+
+        </div>
+
+        <div class="admin-hint">
+
+            <strong>STRG + SHIFT + A</strong>
+            öffnet/schließt den Admin-Modus.
+
+            <br><br>
+
+            Klicke einen Punkt an, um ihn auszuwählen.
+
+            <br><br>
+
+            Ziehe einen Punkt direkt mit der Maus
+            an die gewünschte Position.
+
+            <br><br>
+
+            Du kannst Punkte umbenennen,
+            neu färben, kopieren, löschen
+            oder komplett neu erstellen.
+
+            <br><br>
+
+            Die Positionen werden in echten
+            9126 × 7022 Kartenpixeln angegeben.
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+
+const MAP_WIDTH = 9126;
+const MAP_HEIGHT = 7022;
+
+const viewport = document.getElementById("viewport");
+const world = document.getElementById("world");
+
+let scale = 0.5;
+let offsetX = 0;
+let offsetY = 0;
+
+const categoryState = {
+    koks: true,
+    opium: true,
+    pilz: true
+};
+
+let adminMode = false;
+let selectedMarker = null;
+let markerCounter = 1000;
+
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
+let panOriginX = 0;
+let panOriginY = 0;
+
+let isDraggingMarker = false;
+let markerDragStartX = 0;
+let markerDragStartY = 0;
+let markerOriginX = 0;
+let markerOriginY = 0;
+
+
+/* =========================================================
+   MARKER ZOOM-SCALING
+
+   Wichtig:
+   Der Marker wird gegen den Karten-Zoom kompensiert.
+
+   Dadurch bleibt er auf dem Bildschirm klein und präzise,
+   auch wenn die Karte stark herangezoomt wird.
+========================================================= */
+
+function updateMarkerScale() {
+
+    const markers =
+        document.querySelectorAll(".marker");
+
+    /*
+     * Grundgröße bleibt ungefähr gleich.
+     * Bei größerem Karten-Zoom wächst der Marker nicht mit.
+     */
+
+    const inverseScale =
+        Math.min(
+            4,
+            Math.max(
+                0.75,
+                1 / scale
+            )
+        );
+
+    markers.forEach(function(marker) {
+
+        marker.style.setProperty(
+            "--marker-scale",
+            inverseScale
+        );
+
+        marker.style.setProperty(
+            "--marker-hover-scale",
+            inverseScale * 1.16
+        );
+
+    });
+
+}
+
+
+/* =========================================================
+   VIEW
+========================================================= */
+
+function updateWorldTransform() {
+
+    world.style.transform =
+        `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+
+    updateMarkerScale();
+
+}
+
+
+function resetView() {
+
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+
+    const scaleX = vw / MAP_WIDTH;
+    const scaleY = vh / MAP_HEIGHT;
+
+    scale = Math.max(
+        Math.min(scaleX, scaleY),
+        0.05
+    );
+
+    offsetX =
+        (vw - MAP_WIDTH * scale) / 2;
+
+    offsetY =
+        (vh - MAP_HEIGHT * scale) / 2;
+
+    updateWorldTransform();
+
+}
+
+
+window.addEventListener(
+    "resize",
+    resetView
+);
+
+
+/* =========================================================
+   ZOOM
+========================================================= */
+
+function zoomAt(newScale, mouseX, mouseY) {
+
+    newScale = Math.max(
+        0.05,
+        Math.min(3, newScale)
+    );
+
+    const worldX =
+        (mouseX - offsetX) / scale;
+
+    const worldY =
+        (mouseY - offsetY) / scale;
+
+    offsetX =
+        mouseX - worldX * newScale;
+
+    offsetY =
+        mouseY - worldY * newScale;
+
+    scale = newScale;
+
+    updateWorldTransform();
+
+}
+
+
+function zoomIn() {
+
+    const rect =
+        viewport.getBoundingClientRect();
+
+    zoomAt(
+        scale * 1.25,
+        rect.width / 2,
+        rect.height / 2
+    );
+
+}
+
+
+function zoomOut() {
+
+    const rect =
+        viewport.getBoundingClientRect();
+
+    zoomAt(
+        scale / 1.25,
+        rect.width / 2,
+        rect.height / 2
+    );
+
+}
+
+
+viewport.addEventListener(
+    "wheel",
+    function(e) {
+
+        e.preventDefault();
+
+        const rect =
+            viewport.getBoundingClientRect();
+
+        const mouseX =
+            e.clientX - rect.left;
+
+        const mouseY =
+            e.clientY - rect.top;
+
+        const factor =
+            e.deltaY < 0 ? 1.12 : 0.89;
+
+        zoomAt(
+            scale * factor,
+            mouseX,
+            mouseY
+        );
+
+    },
+    {
+        passive: false
+    }
+);
+
+
+/* =========================================================
+   KARTE VERSCHIEBEN
+========================================================= */
+
+viewport.addEventListener(
+    "mousedown",
+    function(e) {
+
+        if (e.button !== 0)
+            return;
+
+        if (
+            adminMode &&
+            e.target.closest(".marker")
+        ) {
+
+            startMarkerDrag(
+                e,
+                e.target.closest(".marker")
+            );
+
+            return;
+        }
+
+        isPanning = true;
+
+        viewport.classList.add(
+            "dragging"
+        );
+
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+
+        panOriginX = offsetX;
+        panOriginY = offsetY;
+
+    }
+);
+
+
+window.addEventListener(
+    "mousemove",
+    function(e) {
+
+        if (isDraggingMarker) {
+
+            moveMarker(e);
+
+            return;
+        }
+
+        if (!isPanning)
+            return;
+
+        offsetX =
+            panOriginX +
+            (e.clientX - panStartX);
+
+        offsetY =
+            panOriginY +
+            (e.clientY - panStartY);
+
+        updateWorldTransform();
+
+    }
+);
+
+
+window.addEventListener(
+    "mouseup",
+    function() {
+
+        if (isDraggingMarker) {
+            finishMarkerDrag();
+        }
+
+        isPanning = false;
+
+        viewport.classList.remove(
+            "dragging"
+        );
+
+    }
+);
+
+
+/* =========================================================
+   MARKER DRAG
+========================================================= */
+
+function startMarkerDrag(e, marker) {
+
+    if (!adminMode)
+        return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    selectMarker(marker);
+
+    isDraggingMarker = true;
+
+    markerDragStartX = e.clientX;
+    markerDragStartY = e.clientY;
+
+    markerOriginX =
+        parseFloat(marker.style.left);
+
+    markerOriginY =
+        parseFloat(marker.style.top);
+
+}
+
+
+function moveMarker(e) {
+
+    if (!selectedMarker)
+        return;
+
+    const deltaX =
+        (e.clientX - markerDragStartX) / scale;
+
+    const deltaY =
+        (e.clientY - markerDragStartY) / scale;
+
+    let x =
+        markerOriginX + deltaX;
+
+    let y =
+        markerOriginY + deltaY;
+
+    x = Math.max(
+        0,
+        Math.min(MAP_WIDTH, x)
+    );
+
+    y = Math.max(
+        0,
+        Math.min(MAP_HEIGHT, y)
+    );
+
+    selectedMarker.style.left =
+        x + "px";
+
+    selectedMarker.style.top =
+        y + "px";
+
+    updateAdminPanel();
+
+}
+
+
+function finishMarkerDrag() {
+
+    if (!isDraggingMarker)
+        return;
+
+    isDraggingMarker = false;
+
+    savePositions();
+
+}
+
+
+/* =========================================================
+   MARKER AUSWÄHLEN
+========================================================= */
+
+document.addEventListener(
+    "click",
+    function(e) {
+
+        const marker =
+            e.target.closest(".marker");
+
+        if (!marker)
+            return;
+
+        if (!adminMode)
+            return;
+
+        e.stopPropagation();
+
+        selectMarker(marker);
+
+    }
+);
+
+
+function selectMarker(marker) {
+
+    document
+        .querySelectorAll(".marker")
+        .forEach(function(m) {
+
+            m.classList.remove(
+                "admin-selected"
+            );
+
+        });
+
+    selectedMarker = marker;
+
+    marker.classList.add(
+        "admin-selected"
+    );
+
+    updateAdminPanel();
+
+}
+
+
+/* =========================================================
+   ADMIN PANEL
+========================================================= */
+
+function updateAdminPanel() {
+
+    const selected =
+        document.getElementById(
+            "adminSelected"
+        );
+
+    const x =
+        document.getElementById(
+            "adminX"
+        );
+
+    const y =
+        document.getElementById(
+            "adminY"
+        );
+
+    const name =
+        document.getElementById(
+            "adminName"
+        );
+
+    const category =
+        document.getElementById(
+            "adminCategory"
+        );
+
+    const color =
+        document.getElementById(
+            "adminColor"
+        );
+
+    const colorText =
+        document.getElementById(
+            "adminColorText"
+        );
+
+    if (!selectedMarker) {
+
+        selected.textContent =
+            "Kein Punkt";
+
+        x.textContent = "—";
+        y.textContent = "—";
+
+        name.value = "";
+
+        category.value = "koks";
+
+        color.value = "#28c7c0";
+        colorText.value = "#28c7c0";
+
+        return;
+
     }
 
-    html,
-    body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background: #090c10;
-        color: white;
-        font-family: Inter, Arial, Helvetica, sans-serif;
+    const markerX =
+        parseFloat(
+            selectedMarker.style.left
+        );
+
+    const markerY =
+        parseFloat(
+            selectedMarker.style.top
+        );
+
+    const label =
+        selectedMarker.querySelector(
+            ".marker-label span:last-child"
+        );
+
+    selected.textContent =
+        label
+            ? label.textContent.trim()
+            : "Punkt";
+
+    x.textContent =
+        Math.round(markerX) + " px";
+
+    y.textContent =
+        Math.round(markerY) + " px";
+
+    name.value =
+        label
+            ? label.textContent.trim()
+            : "";
+
+    category.value =
+        selectedMarker.dataset.category ||
+        "koks";
+
+    let markerColor =
+        selectedMarker.style.getPropertyValue(
+            "--marker-color"
+        );
+
+    if (!markerColor) {
+        markerColor = "#28c7c0";
     }
 
-    body {
-        user-select: none;
+    markerColor =
+        normalizeColor(markerColor);
+
+    color.value = markerColor;
+    colorText.value = markerColor;
+
+}
+
+
+/* =========================================================
+   ÄNDERUNGEN ÜBERNEHMEN
+========================================================= */
+
+function applyPointChanges() {
+
+    if (!selectedMarker) {
+
+        alert(
+            "Bitte zuerst einen Punkt auswählen."
+        );
+
+        return;
     }
 
-    #app {
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        overflow: hidden;
-        background: #090c10;
+    const name =
+        document
+            .getElementById("adminName")
+            .value
+            .trim();
+
+    const category =
+        document
+            .getElementById("adminCategory")
+            .value;
+
+    const color =
+        document
+            .getElementById("adminColorText")
+            .value
+            .trim();
+
+    if (!name) {
+
+        alert(
+            "Bitte einen Namen eingeben."
+        );
+
+        return;
     }
 
-    #viewport {
-        position: absolute;
-        inset: 0;
-        overflow: hidden;
-        cursor: grab;
-        background: #090c10;
+    if (
+        !/^#[0-9A-Fa-f]{6}$/.test(color)
+    ) {
+
+        alert(
+            "Ungültige Farbe.\n\nBeispiel: #28c7c0"
+        );
+
+        return;
     }
 
-    #viewport.dragging {
-        cursor: grabbing;
+    selectedMarker.dataset.category =
+        category;
+
+    updateMarkerCategoryClass(
+        selectedMarker
+    );
+
+    selectedMarker.style.setProperty(
+        "--marker-color",
+        color
+    );
+
+    const label =
+        selectedMarker.querySelector(
+            ".marker-label span:last-child"
+        );
+
+    if (label) {
+        label.textContent = name;
     }
 
-    #world {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 9126px;
-        height: 7022px;
-        transform-origin: 0 0;
-        will-change: transform;
+    savePositions();
+
+    updateLegend();
+    updateAdminPanel();
+
+}
+
+
+/* =========================================================
+   KATEGORIE
+========================================================= */
+
+function updateMarkerCategoryClass(marker) {
+
+    marker.classList.remove(
+        "category-koks",
+        "category-opium",
+        "category-pilz"
+    );
+
+    const category =
+        marker.dataset.category || "koks";
+
+    marker.classList.add(
+        "category-" + category
+    );
+
+}
+
+
+function getCategoryIcon(category) {
+
+    switch (category) {
+
+        case "koks":
+            return "●";
+
+        case "opium":
+            return "◆";
+
+        case "pilz":
+            return "⬡";
+
+        default:
+            return "●";
+
     }
 
-    #map {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 9126px;
-        height: 7022px;
-        display: block;
-        max-width: none;
-        pointer-events: none;
-        user-select: none;
+}
+
+
+/* =========================================================
+   FARBE
+========================================================= */
+
+document
+    .getElementById("adminColor")
+    .addEventListener(
+        "input",
+        function() {
+
+            document
+                .getElementById(
+                    "adminColorText"
+                )
+                .value = this.value;
+
+        }
+    );
+
+
+document
+    .getElementById("adminColorText")
+    .addEventListener(
+        "input",
+        function() {
+
+            const value = this.value;
+
+            if (
+                /^#[0-9A-Fa-f]{6}$/.test(
+                    value
+                )
+            ) {
+
+                document
+                    .getElementById(
+                        "adminColor"
+                    )
+                    .value = value;
+
+            }
+
+        }
+    );
+
+
+/* =========================================================
+   NEUER PUNKT
+========================================================= */
+
+function createNewPoint() {
+
+    const marker =
+        document.createElement("div");
+
+    marker.className =
+        "marker category-koks";
+
+    marker.dataset.id =
+        "marker-" +
+        Date.now() +
+        "-" +
+        markerCounter++;
+
+    marker.dataset.category =
+        "koks";
+
+    const rect =
+        viewport.getBoundingClientRect();
+
+    const centerX =
+        (rect.width / 2 - offsetX) /
+        scale;
+
+    const centerY =
+        (rect.height / 2 - offsetY) /
+        scale;
+
+    marker.style.left =
+        Math.max(
+            0,
+            Math.min(
+                MAP_WIDTH,
+                centerX
+            )
+        ) + "px";
+
+    marker.style.top =
+        Math.max(
+            0,
+            Math.min(
+                MAP_HEIGHT,
+                centerY
+            )
+        ) + "px";
+
+    marker.style.setProperty(
+        "--marker-color",
+        "#28c7c0"
+    );
+
+    marker.innerHTML = `
+        <div class="marker-ring"></div>
+
+        <div class="marker-dot"></div>
+
+        <div class="marker-label">
+
+            <span class="marker-label-category"></span>
+
+            <span>
+                Neuer Punkt
+            </span>
+
+        </div>
+    `;
+
+    world.appendChild(marker);
+
+    updateMarkerScale();
+
+    selectMarker(marker);
+
+    updateLegend();
+
+    const name =
+        document.getElementById(
+            "adminName"
+        );
+
+    if (name) {
+
+        name.focus();
+        name.select();
+
     }
 
-    #mapShade {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 9126px;
-        height: 7022px;
+}
+
+
+/* =========================================================
+   KOPIEREN
+========================================================= */
+
+function duplicateSelectedPoint() {
+
+    if (!selectedMarker) {
+
+        alert(
+            "Bitte zuerst einen Punkt auswählen."
+        );
+
+        return;
+    }
+
+    const original =
+        selectedMarker;
+
+    const copy =
+        original.cloneNode(true);
+
+    copy.dataset.id =
+        "marker-" +
+        Date.now() +
+        "-" +
+        markerCounter++;
+
+    const originalX =
+        parseFloat(
+            original.style.left
+        );
+
+    const originalY =
+        parseFloat(
+            original.style.top
+        );
+
+    copy.style.left =
+        Math.min(
+            MAP_WIDTH,
+            originalX + 80
+        ) + "px";
+
+    copy.style.top =
+        Math.min(
+            MAP_HEIGHT,
+            originalY + 80
+        ) + "px";
+
+    const label =
+        copy.querySelector(
+            ".marker-label span:last-child"
+        );
+
+    if (label) {
+
+        label.textContent =
+            label.textContent.trim() +
+            " – Kopie";
+
+    }
+
+    original.parentElement.appendChild(
+        copy
+    );
+
+    updateMarkerScale();
+
+    selectMarker(copy);
+
+    updateLegend();
+    updateAdminPanel();
+
+}
+
+
+/* =========================================================
+   LÖSCHEN
+========================================================= */
+
+async function deleteSelectedPoint() {
+
+    if (!selectedMarker) {
+
+        alert(
+            "Bitte zuerst einen Punkt auswählen."
+        );
+
+        return;
+    }
+
+    const label =
+        selectedMarker.querySelector(
+            ".marker-label span:last-child"
+        );
+
+    const pointName =
+        label
+            ? label.textContent.trim()
+            : "Punkt";
+
+    if (
+        !confirm(
+            `Soll "${pointName}" wirklich gelöscht werden?`
+        )
+    ) {
+        return;
+    }
+
+    const deletedId =
+        selectedMarker.dataset.id;
+
+    selectedMarker.remove();
+
+    selectedMarker = null;
+
+    updateAdminPanel();
+    updateLegend();
+
+    await deletePointFromDatabase(
+        deletedId
+    );
+
+}
+
+
+/* =========================================================
+   KOORDINATEN
+========================================================= */
+
+function copyCoordinates() {
+
+    if (!selectedMarker) {
+
+        alert(
+            "Bitte zuerst einen Punkt auswählen."
+        );
+
+        return;
+    }
+
+    const x =
+        Math.round(
+            parseFloat(
+                selectedMarker.style.left
+            )
+        );
+
+    const y =
+        Math.round(
+            parseFloat(
+                selectedMarker.style.top
+            )
+        );
+
+    const text =
+        `X: ${x}px\nY: ${y}px`;
+
+    if (
+        navigator.clipboard &&
+        navigator.clipboard.writeText
+    ) {
+
+        navigator.clipboard
+            .writeText(text)
+            .then(function() {
+
+                alert(
+                    "Koordinaten wurden kopiert."
+                );
+
+            });
+
+    } else {
+
+        const textarea =
+            document.createElement(
+                "textarea"
+            );
+
+        textarea.value = text;
+
+        document.body.appendChild(
+            textarea
+        );
+
+        textarea.select();
+
+        document.execCommand("copy");
+
+        textarea.remove();
+
+        alert(
+            "Koordinaten wurden kopiert."
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   SUPABASE
+========================================================= */
+
+const SUPABASE_URL =
+    "https://bhkkzabaitdimkjatwup.supabase.co";
+
+const SUPABASE_PUBLISHABLE_KEY =
+    "sb_publishable_WjTtWipuIYDxNC86fEnLXw_dtx5CA_Y";
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_PUBLISHABLE_KEY
+    );
+
+let databaseReady = false;
+let loadingPoints = false;
+let realtimeChannel = null;
+
+
+/* =========================================================
+   REALTIME
+========================================================= */
+
+function startRealtimeSync() {
+
+    if (realtimeChannel)
+        return;
+
+    realtimeChannel =
+        supabaseClient
+            .channel("route-points-live")
+
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "route_points"
+                },
+                function(payload) {
+
+                    const point =
+                        payload.eventType === "DELETE"
+                            ? payload.old
+                            : payload.new;
+
+                    if (
+                        !point ||
+                        !point.id
+                    )
+                        return;
+
+                    if (
+                        payload.eventType ===
+                        "DELETE"
+                    ) {
+
+                        const marker =
+                            document.querySelector(
+                                `.marker[data-id="${CSS.escape(String(point.id))}"]`
+                            );
+
+                        if (marker)
+                            marker.remove();
+
+                    } else {
+
+                        const existing =
+                            document.querySelector(
+                                `.marker[data-id="${CSS.escape(String(point.id))}"]`
+                            );
+
+                        if (existing)
+                            existing.remove();
+
+                        createMarkerFromData(
+                            point
+                        );
+
+                        const marker =
+                            document.querySelector(
+                                `.marker[data-id="${CSS.escape(String(point.id))}"]`
+                            );
+
+                        if (
+                            marker &&
+                            categoryState[
+                                point.category
+                            ] === false
+                        ) {
+
+                            marker.style.display =
+                                "none";
+
+                        }
+
+                    }
+
+                    updateLegend();
+                    updateMarkerScale();
+
+                }
+            )
+
+            .subscribe(
+                function(status) {
+
+                    console.log(
+                        "Supabase Realtime:",
+                        status
+                    );
+
+                }
+            );
+
+}
+
+
+/* =========================================================
+   LADEN
+========================================================= */
+
+async function loadSavedPositions() {
+
+    if (loadingPoints)
+        return;
+
+    loadingPoints = true;
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await supabaseClient
+                .from("route_points")
+                .select(
+                    "id,name,category,x,y,color,icon,updated_at"
+                )
+                .order("id");
+
+        if (error)
+            throw error;
+
+        document
+            .querySelectorAll(".marker")
+            .forEach(
+                function(marker) {
+                    marker.remove();
+                }
+            );
+
+        data.forEach(
+            function(point) {
+                createMarkerFromData(
+                    point
+                );
+            }
+        );
+
+        databaseReady = true;
+
+        updateLegend();
+        updateMarkerScale();
+
+        startRealtimeSync();
+
+        console.log(
+            "Routenpunkte aus Supabase geladen:",
+            data
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Supabase: Punkte konnten nicht geladen werden.",
+            error
+        );
+
+        alert(
+            "Die Routenpunkte konnten nicht aus der Datenbank geladen werden.\n\n" +
+            "Fehler: " +
+            (error.message || "Unbekannter Fehler")
+        );
+
+        updateLegend();
+
+    } finally {
+
+        loadingPoints = false;
+
+    }
+
+}
+
+
+/* =========================================================
+   SPEICHERN
+========================================================= */
+
+async function savePositions() {
+
+    const markers =
+        document.querySelectorAll(
+            ".marker"
+        );
+
+    const data = [];
+
+    markers.forEach(
+        function(marker, index) {
+
+            const label =
+                marker.querySelector(
+                    ".marker-label span:last-child"
+                );
+
+            const color =
+                normalizeColor(
+                    marker.style.getPropertyValue(
+                        "--marker-color"
+                    ) || "#28c7c0"
+                );
+
+            const id =
+                marker.dataset.id ||
+                "marker-" +
+                Date.now() +
+                "-" +
+                index;
+
+            marker.dataset.id = id;
+
+            const category =
+                marker.dataset.category ||
+                "koks";
+
+            data.push({
+
+                id: id,
+
+                x: parseFloat(
+                    marker.style.left
+                ),
+
+                y: parseFloat(
+                    marker.style.top
+                ),
+
+                category:
+                    category,
+
+                color:
+                    color,
+
+                name:
+                    label
+                        ? label.textContent.trim()
+                        : "Punkt",
+
+                /*
+                 * Bestehendes DB-Feld bleibt erhalten.
+                 * Die Darstellung benutzt inzwischen die
+                 * Kategorieform statt des Emojis.
+                 */
+
+                icon:
+                    getCategoryIcon(category)
+
+            });
+
+        }
+    );
+
+    if (!databaseReady) {
+
+        console.warn(
+            "Supabase ist noch nicht bereit. Speichern abgebrochen."
+        );
+
+        alert(
+            "Die Datenbank ist noch nicht bereit.\nBitte kurz warten und erneut versuchen."
+        );
+
+        return;
+
+    }
+
+    if (data.length === 0) {
+
+        console.warn(
+            "Keine Punkte zum Speichern vorhanden."
+        );
+
+        return;
+
+    }
+
+    console.log(
+        "Supabase: Speichere folgende Daten:",
+        data
+    );
+
+    try {
+
+        const {
+            data: savedData,
+            error
+        } =
+            await supabaseClient
+                .from("route_points")
+                .upsert(
+                    data,
+                    {
+                        onConflict: "id"
+                    }
+                )
+                .select();
+
+        if (error)
+            throw error;
+
+        console.log(
+            "Routenkarte erfolgreich in Supabase gespeichert:",
+            savedData
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Supabase: Speichern fehlgeschlagen.",
+            error
+        );
+
+        console.error(
+            "Supabase Fehlerdetails:",
+            {
+                message: error?.message,
+                code: error?.code,
+                details: error?.details,
+                hint: error?.hint,
+                status: error?.status
+            }
+        );
+
+        alert(
+            "SPEICHERN FEHLGESCHLAGEN\n\n" +
+
+            "Fehler:\n" +
+            (error?.message ||
+                "Unbekannter Fehler") +
+
+            "\n\nCode:\n" +
+            (error?.code || "—") +
+
+            "\n\nDetails:\n" +
+            (error?.details || "—") +
+
+            "\n\nHinweis:\n" +
+            (error?.hint || "—")
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   EINEN PUNKT LÖSCHEN
+========================================================= */
+
+async function deletePointFromDatabase(id) {
+
+    if (!id)
+        return;
+
+    try {
+
+        const {
+            error
+        } =
+            await supabaseClient
+                .from("route_points")
+                .delete()
+                .eq("id", id);
+
+        if (error)
+            throw error;
+
+    } catch (error) {
+
+        console.error(
+            "Supabase: Punkt konnte nicht gelöscht werden.",
+            error
+        );
+
+        alert(
+            "Der Punkt konnte nicht aus der Datenbank gelöscht werden.\n\n" +
+            "Fehler: " +
+            (error.message ||
+                "Unbekannter Fehler")
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   RESET
+========================================================= */
+
+async function resetSavedPositions() {
+
+    if (
+        !confirm(
+            "Alle Punkte aus der Online-Datenbank löschen und die ursprünglichen Punkte wiederherstellen?"
+        )
+    ) {
+        return;
+    }
+
+    try {
+
+        const {
+            error
+        } =
+            await supabaseClient
+                .from("route_points")
+                .delete()
+                .neq(
+                    "id",
+                    "__never_match__"
+                );
+
+        if (error)
+            throw error;
+
+        location.reload();
+
+    } catch (error) {
+
+        console.error(
+            "Supabase: Zurücksetzen fehlgeschlagen.",
+            error
+        );
+
+        alert(
+            "Die Datenbank konnte nicht zurückgesetzt werden.\n\n" +
+            "Fehler: " +
+            (error.message ||
+                "Unbekannter Fehler")
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   MARKER AUS DATEN ERSTELLEN
+========================================================= */
+
+function createMarkerFromData(point) {
+
+    const marker =
+        document.createElement("div");
+
+    marker.className =
+        "marker";
+
+    marker.dataset.id =
+        String(point.id);
+
+    marker.dataset.category =
+        point.category || "koks";
+
+    updateMarkerCategoryClass(
+        marker
+    );
+
+    marker.style.left =
+        point.x + "px";
+
+    marker.style.top =
+        point.y + "px";
+
+    marker.style.setProperty(
+        "--marker-color",
+        point.color || "#28c7c0"
+    );
+
+    marker.innerHTML = `
+
+        <div class="marker-ring"></div>
+
+        <div class="marker-dot"></div>
+
+        <div class="marker-label">
+
+            <span class="marker-label-category"></span>
+
+            <span></span>
+
+        </div>
+
+    `;
+
+    const label =
+        marker.querySelector(
+            ".marker-label span:last-child"
+        );
+
+    if (label) {
+
+        label.textContent =
+            point.name || "Punkt";
+
+    }
+
+    world.appendChild(marker);
+
+    updateMarkerScale();
+
+}
+
+
+/* =========================================================
+   KATEGORIEN
+========================================================= */
+
+function toggleCategory(category) {
+
+    categoryState[category] =
+        !categoryState[category];
+
+    const visible =
+        categoryState[category];
+
+    document
+        .querySelectorAll(
+            `.marker[data-category="${category}"]`
+        )
+        .forEach(
+            function(marker) {
+
+                marker.style.display =
+                    visible
+                        ? ""
+                        : "none";
+
+            }
+        );
+
+    const legend =
+        document.querySelector(
+            `.legend-item[data-category="${category}"]`
+        );
+
+    if (legend) {
+
+        legend.classList.toggle(
+            "disabled",
+            !visible
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   LEGENDE
+========================================================= */
+
+function updateLegend() {
+
+    const counts = {};
+
+    document
+        .querySelectorAll(".marker")
+        .forEach(
+            function(marker) {
+
+                const category =
+                    marker.dataset.category;
+
+                counts[category] =
+                    (counts[category] || 0) + 1;
+
+            }
+        );
+
+    document
+        .querySelectorAll(".legend-item")
+        .forEach(
+            function(item) {
+
+                const category =
+                    item.dataset.category;
+
+                const count =
+                    counts[category] || 0;
+
+                const countElement =
+                    item.querySelector(
+                        ".legend-count"
+                    );
+
+                if (countElement) {
+
+                    countElement.textContent =
+                        count;
+
+                }
+
+            }
+        );
+
+}
+
+
+/* =========================================================
+   ADMIN
+========================================================= */
+
+document.addEventListener(
+    "keydown",
+    function(e) {
+
+        if (
+            e.ctrlKey &&
+            e.shiftKey &&
+            e.key.toLowerCase() === "a"
+        ) {
+
+            e.preventDefault();
+
+            if (adminMode) {
+
+                exitAdminMode();
+
+            } else {
+
+                enterAdminMode();
+
+            }
+
+        }
+
+    }
+);
+
+
+async function enterAdminMode() {
+
+    const {
+        data,
+        error
+    } =
+        await supabaseClient.auth.getSession();
+
+    if (error) {
+
+        console.error(
+            "Supabase Auth Fehler:",
+            error
+        );
+
+        alert(
+            "Die Anmeldung konnte nicht geprüft werden."
+        );
+
+        return;
+
+    }
+
+    let session =
+        data.session;
+
+    if (!session) {
+
+        const email =
+            prompt(
+                "Admin-E-Mail eingeben:"
+            );
+
+        if (!email)
+            return;
+
+        const password =
+            prompt(
+                "Admin-Passwort eingeben:"
+            );
+
+        if (!password)
+            return;
+
+        const result =
+            await supabaseClient.auth
+                .signInWithPassword({
+
+                    email:
+                        email.trim(),
+
+                    password:
+                        password
+
+                });
+
+        if (result.error) {
+
+            console.error(
+                "Login fehlgeschlagen:",
+                result.error
+            );
+
+            alert(
+                "Login fehlgeschlagen: " +
+                result.error.message
+            );
+
+            return;
+
+        }
+
+        session =
+            result.data.session;
+
+    }
+
+    if (!session) {
+
+        alert(
+            "Keine gültige Admin-Anmeldung gefunden."
+        );
+
+        return;
+
+    }
+
+    adminMode = true;
+
+    document.body.classList.add(
+        "admin-active"
+    );
+
+    updateAdminPanel();
+
+}
+
+
+/* =========================================================
+   ADMIN VERLASSEN
+========================================================= */
+
+function exitAdminMode() {
+
+    adminMode = false;
+
+    isDraggingMarker = false;
+
+    selectedMarker = null;
+
+    document
+        .querySelectorAll(".marker")
+        .forEach(
+            function(marker) {
+
+                marker.classList.remove(
+                    "admin-selected"
+                );
+
+            }
+        );
+
+    document.body.classList.remove(
+        "admin-active"
+    );
+
+    updateAdminPanel();
+
+}
+
+
+/* =========================================================
+   FARBE NORMALISIEREN
+========================================================= */
+
+function normalizeColor(color) {
+
+    if (!color)
+        return "#28c7c0";
+
+    color =
+        color.trim();
+
+    if (
+        /^#[0-9A-Fa-f]{6}$/.test(
+            color
+        )
+    ) {
+
+        return color.toLowerCase();
+
+    }
+
+    const rgb =
+        color.match(
+            /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i
+        );
+
+    if (rgb) {
+
+        const r =
+            parseInt(rgb[1], 10);
+
+        const g =
+            parseInt(rgb[2], 10);
+
+        const b =
+            parseInt(rgb[3], 10);
+
+        return "#" +
+            [r, g, b]
+                .map(
+                    function(value) {
+
+                        return value
+                            .toString(16)
+                            .padStart(
+                                2,
+                                "0"
+                            );
+
+                    }
+                )
+                .join("");
+
+    }
+
+    return "#28c7c0";
+
+}
+
+
+/* =========================================================
+   START
+========================================================= */
+
+resetView();
+
+loadSavedPositions();
+
+updateLegend();
+
+</script>
+
+</body>
+</html>        height: 7022px;
         pointer-events: none;
         background: linear-gradient(
             to bottom,
