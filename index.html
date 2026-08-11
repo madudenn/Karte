@@ -1,961 +1,516 @@
+```html
 <!DOCTYPE html>
 <html lang="de">
 
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Routenkarte</title>
 
-
     <style>
-
         * {
             box-sizing: border-box;
         }
-
 
         html,
         body {
             margin: 0;
             padding: 0;
-
             width: 100%;
             height: 100%;
-
             overflow: hidden;
-
             background: #090c10;
-
             color: white;
-
-            font-family:
-                Inter,
-                Arial,
-                Helvetica,
-                sans-serif;
+            font-family: Inter, Arial, Helvetica, sans-serif;
         }
-
 
         body {
             user-select: none;
         }
 
-
-        /* =====================================================
-           HAUPTANSICHT
-        ===================================================== */
-
         #app {
             position: relative;
-
             width: 100vw;
             height: 100vh;
-
             overflow: hidden;
-
             background: #090c10;
         }
 
-
-        /* =====================================================
-           KARTEN-BEREICH
-        ===================================================== */
-
         #viewport {
-
             position: absolute;
-
             inset: 0;
-
             overflow: hidden;
-
             cursor: grab;
-
-            background:
-                #090c10;
+            background: #090c10;
         }
-
 
         #viewport.dragging {
             cursor: grabbing;
         }
 
-
         #world {
-
             position: absolute;
-
             left: 0;
             top: 0;
-
             width: 9126px;
             height: 7022px;
-
             transform-origin: 0 0;
-
             will-change: transform;
         }
 
-
         #map {
-
             position: absolute;
-
             left: 0;
             top: 0;
-
             width: 9126px;
             height: 7022px;
-
             display: block;
-
             max-width: none;
-
             pointer-events: none;
-
             user-select: none;
         }
 
-
         #mapShade {
-
             position: absolute;
-
             left: 0;
             top: 0;
-
             width: 9126px;
             height: 7022px;
-
             pointer-events: none;
-
-            background:
-                linear-gradient(
-                    to bottom,
-                    rgba(0,0,0,0.05),
-                    rgba(0,0,0,0.12)
-                );
+            background: linear-gradient(
+                to bottom,
+                rgba(0, 0, 0, 0.05),
+                rgba(0, 0, 0, 0.12)
+            );
         }
 
-
-        /* =====================================================
-           MARKER
-        ===================================================== */
+        /* MARKER */
 
         .marker {
-
             position: absolute;
-
             width: 0;
             height: 0;
-
             z-index: 20;
-
             cursor: pointer;
-
             --marker-color: #28c7c0;
         }
 
-
         .marker-ring {
-
             position: absolute;
-
             left: -15px;
             top: -15px;
-
             width: 30px;
             height: 30px;
-
             border-radius: 50%;
-
-            border:
-                2px solid
-                var(--marker-color);
-
+            border: 2px solid var(--marker-color);
             opacity: 0.55;
-
-            box-shadow:
-                0 0 12px
-                var(--marker-color);
-
+            box-shadow: 0 0 12px var(--marker-color);
             transition:
                 transform 0.15s ease,
                 box-shadow 0.15s ease;
         }
 
-
         .marker-dot {
-
             position: absolute;
-
             left: -6px;
             top: -6px;
-
             width: 12px;
             height: 12px;
-
             border-radius: 50%;
-
-            background:
-                var(--marker-color);
-
-            border:
-                2px solid white;
-
-            box-shadow:
-                0 0 12px
-                var(--marker-color);
+            background: var(--marker-color);
+            border: 2px solid white;
+            box-shadow: 0 0 12px var(--marker-color);
         }
-
 
         .marker-label {
-
             position: absolute;
-
             left: 20px;
             top: -18px;
-
             display: flex;
-
             align-items: center;
-
             gap: 7px;
-
-            padding:
-                7px
-                10px;
-
+            padding: 7px 10px;
             white-space: nowrap;
-
-            background:
-                rgba(10,13,18,0.92);
-
-            border:
-                1px solid
-                rgba(255,255,255,0.12);
-
+            background: rgba(10, 13, 18, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 7px;
-
             color: white;
-
             font-size: 13px;
-
-            box-shadow:
-                0 5px 20px
-                rgba(0,0,0,0.35);
-
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.35);
             pointer-events: none;
         }
-
 
         .marker-label-icon {
             font-size: 15px;
         }
 
-
-        /* =====================================================
-           ADMIN AUSGEWÄHLT
-        ===================================================== */
-
         .marker.admin-selected {
             z-index: 9999;
         }
 
-
-        .marker.admin-selected
-        .marker-ring {
-
-            transform:
-                scale(1.45);
-
+        .marker.admin-selected .marker-ring {
+            transform: scale(1.45);
             opacity: 1;
-
             border-color: white;
-
             box-shadow:
-                0 0 0 2px
-                rgba(255,255,255,0.25),
-
-                0 0 25px
-                var(--marker-color);
+                0 0 0 2px rgba(255, 255, 255, 0.25),
+                0 0 25px var(--marker-color);
         }
 
-
-        .marker.admin-selected
-        .marker-dot {
-
-            transform:
-                scale(1.25);
+        .marker.admin-selected .marker-dot {
+            transform: scale(1.25);
         }
 
-
-        /* =====================================================
-           HEADER
-        ===================================================== */
+        /* HEADER */
 
         .header {
-
             position: absolute;
-
             left: 25px;
             top: 25px;
-
             z-index: 100;
-
             pointer-events: none;
         }
 
-
         .title {
-
             font-size: 30px;
-
             font-weight: 800;
-
             letter-spacing: 0.02em;
-
-            text-shadow:
-                0 3px 15px
-                rgba(0,0,0,0.8);
+            text-shadow: 0 3px 15px rgba(0, 0, 0, 0.8);
         }
-
 
         .subtitle {
-
             margin-top: 4px;
-
             font-size: 13px;
-
-            color:
-                rgba(255,255,255,0.65);
-
-            text-shadow:
-                0 2px 8px
-                rgba(0,0,0,0.8);
+            color: rgba(255, 255, 255, 0.65);
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
         }
 
-
-        /* =====================================================
-           LEGENDE
-        ===================================================== */
+        /* LEGENDE */
 
         .legend {
-
             position: absolute;
-
             top: 25px;
             right: 25px;
-
             z-index: 100;
-
             width: 230px;
-
             padding: 15px;
-
             border-radius: 10px;
-
-            background:
-                rgba(10,13,18,0.91);
-
-            border:
-                1px solid
-                rgba(255,255,255,0.09);
-
-            box-shadow:
-                0 12px 40px
-                rgba(0,0,0,0.35);
-
-            backdrop-filter:
-                blur(12px);
+            background: rgba(10, 13, 18, 0.91);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(12px);
         }
-
 
         .legend-title {
-
             margin-bottom: 12px;
-
             font-size: 12px;
-
             font-weight: 800;
-
             text-transform: uppercase;
-
             letter-spacing: 0.1em;
-
-            color:
-                rgba(255,255,255,0.5);
+            color: rgba(255, 255, 255, 0.5);
         }
 
-
         .legend-item {
-
             display: flex;
-
             align-items: center;
-
             gap: 10px;
-
             min-height: 42px;
-
             padding: 7px 8px;
-
             border-radius: 7px;
-
             cursor: pointer;
-
             transition:
                 background 0.15s ease,
                 opacity 0.15s ease;
         }
 
-
         .legend-item:hover {
-
-            background:
-                rgba(255,255,255,0.06);
+            background: rgba(255, 255, 255, 0.06);
         }
 
-
         .legend-item.disabled {
-
             opacity: 0.35;
         }
 
-
         .legend-icon {
-
             width: 30px;
             height: 30px;
-
             display: flex;
-
             align-items: center;
             justify-content: center;
-
             border-radius: 6px;
-
-            background:
-                rgba(255,255,255,0.05);
-
+            background: rgba(255, 255, 255, 0.05);
             font-size: 16px;
         }
 
-
         .legend-name {
-
             flex: 1;
-
             font-size: 13px;
-
             font-weight: 600;
         }
 
-
         .legend-count {
-
             min-width: 25px;
-
             text-align: right;
-
             font-size: 12px;
-
-            color:
-                rgba(255,255,255,0.5);
+            color: rgba(255, 255, 255, 0.5);
         }
 
-
-        /* =====================================================
-           ZOOM CONTROLS
-        ===================================================== */
+        /* CONTROLS */
 
         .controls {
-
             position: absolute;
-
             right: 25px;
             bottom: 25px;
-
             z-index: 100;
-
             display: flex;
-
             flex-direction: column;
-
             gap: 7px;
         }
 
-
         .control-btn {
-
             width: 44px;
             height: 44px;
-
-            border: 1px solid
-                rgba(255,255,255,0.1);
-
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 8px;
-
-            background:
-                rgba(10,13,18,0.92);
-
+            background: rgba(10, 13, 18, 0.92);
             color: white;
-
             font-size: 22px;
-
             cursor: pointer;
-
-            box-shadow:
-                0 8px 25px
-                rgba(0,0,0,0.3);
-
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
             transition:
                 background 0.15s ease,
                 transform 0.1s ease;
         }
 
-
         .control-btn:hover {
-
-            background:
-                rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
         }
-
 
         .control-btn:active {
-
-            transform:
-                scale(0.94);
+            transform: scale(0.94);
         }
 
-
-        /* =====================================================
-           ADMIN PANEL
-        ===================================================== */
+        /* ADMIN */
 
         .admin-panel {
-
             position: absolute;
-
             left: 25px;
             bottom: 25px;
-
             z-index: 5000;
-
             width: 310px;
-
-            max-height:
-                calc(100vh - 50px);
-
+            max-height: calc(100vh - 50px);
             overflow-y: auto;
-
             padding: 17px;
-
             border-radius: 11px;
-
-            background:
-                rgba(10,13,18,0.97);
-
-            border:
-                1px solid
-                rgba(255,255,255,0.12);
-
-            box-shadow:
-                0 15px 50px
-                rgba(0,0,0,0.55);
-
-            backdrop-filter:
-                blur(16px);
-
+            background: rgba(10, 13, 18, 0.97);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(16px);
             display: none;
         }
 
-
-        body.admin-active
-        .admin-panel {
-
+        body.admin-active .admin-panel {
             display: block;
         }
 
-
         .admin-header {
-
             display: flex;
-
             align-items: center;
-
             justify-content: space-between;
-
             margin-bottom: 15px;
         }
 
-
         .admin-title {
-
             font-size: 17px;
-
             font-weight: 800;
         }
 
-
         .admin-badge {
-
             padding: 4px 7px;
-
             border-radius: 5px;
-
-            background:
-                rgba(40,199,192,0.15);
-
-            border:
-                1px solid
-                rgba(40,199,192,0.35);
-
-            color:
-                #28c7c0;
-
+            background: rgba(40, 199, 192, 0.15);
+            border: 1px solid rgba(40, 199, 192, 0.35);
+            color: #28c7c0;
             font-size: 9px;
-
             font-weight: 800;
-
             letter-spacing: 0.1em;
         }
 
-
         .admin-info {
-
             padding: 11px;
-
             margin-bottom: 14px;
-
             border-radius: 7px;
-
-            background:
-                rgba(255,255,255,0.035);
-
-            color:
-                rgba(255,255,255,0.6);
-
+            background: rgba(255, 255, 255, 0.035);
+            color: rgba(255, 255, 255, 0.6);
             font-size: 11px;
-
             line-height: 1.8;
         }
 
-
         .admin-info strong {
-
             color: white;
         }
 
-
         .admin-editor {
-
             margin-top: 5px;
-
             display: flex;
-
             flex-direction: column;
-
             gap: 7px;
         }
 
-
         .admin-editor label {
-
             margin-top: 4px;
-
             font-size: 10px;
-
-            color:
-                #89919c;
-
+            color: #89919c;
             text-transform: uppercase;
-
             letter-spacing: 0.08em;
         }
 
-
         .admin-editor input,
         .admin-editor select {
-
             width: 100%;
-
             height: 36px;
-
-            padding:
-                0 10px;
-
-            border:
-                1px solid
-                rgba(255,255,255,0.09);
-
+            padding: 0 10px;
+            border: 1px solid rgba(255, 255, 255, 0.09);
             border-radius: 6px;
-
-            background:
-                #11151b;
-
+            background: #11151b;
             color: white;
-
             outline: none;
-
             font-family: inherit;
         }
-
 
         .admin-editor input:focus,
         .admin-editor select:focus {
-
-            border-color:
-                #28c7c0;
+            border-color: #28c7c0;
         }
 
-
         .color-row {
-
             display: flex;
-
             gap: 8px;
         }
 
-
         .color-row input[type="color"] {
-
             width: 45px;
-
             padding: 3px;
-
             cursor: pointer;
         }
 
-
         .color-row input[type="text"] {
-
             flex: 1;
         }
 
-
         .admin-buttons {
-
             display: flex;
-
             gap: 7px;
-
             margin-top: 8px;
         }
 
-
         .admin-button {
-
             flex: 1;
-
             min-height: 35px;
-
-            padding:
-                7px 9px;
-
-            border:
-                1px solid
-                rgba(255,255,255,0.09);
-
+            padding: 7px 9px;
+            border: 1px solid rgba(255, 255, 255, 0.09);
             border-radius: 6px;
-
-            background:
-                rgba(255,255,255,0.045);
-
+            background: rgba(255, 255, 255, 0.045);
             color: white;
-
             cursor: pointer;
-
             font-size: 11px;
-
             font-family: inherit;
-
             transition:
                 background 0.15s ease,
                 border-color 0.15s ease;
         }
 
-
         .admin-button:hover {
-
-            background:
-                rgba(255,255,255,0.09);
+            background: rgba(255, 255, 255, 0.09);
         }
-
 
         .admin-button.primary {
-
-            border-color:
-                rgba(40,199,192,0.35);
-
-            background:
-                rgba(40,199,192,0.1);
-
-            color:
-                #55e4de;
+            border-color: rgba(40, 199, 192, 0.35);
+            background: rgba(40, 199, 192, 0.1);
+            color: #55e4de;
         }
-
 
         .admin-button.primary:hover {
-
-            background:
-                rgba(40,199,192,0.17);
+            background: rgba(40, 199, 192, 0.17);
         }
-
 
         .admin-button.danger {
-
-            border-color:
-                rgba(220,70,80,0.35);
-
-            color:
-                #ff6975;
+            border-color: rgba(220, 70, 80, 0.35);
+            color: #ff6975;
         }
-
 
         .admin-button.danger:hover {
-
-            background:
-                rgba(220,70,80,0.12);
+            background: rgba(220, 70, 80, 0.12);
         }
 
-
         .admin-hint {
-
             margin-top: 14px;
-
             padding-top: 13px;
-
-            border-top:
-                1px solid
-                rgba(255,255,255,0.07);
-
-            color:
-                rgba(255,255,255,0.42);
-
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+            color: rgba(255, 255, 255, 0.42);
             font-size: 10px;
-
             line-height: 1.55;
         }
 
-
         .admin-hint strong {
-
-            color:
-                rgba(255,255,255,0.8);
+            color: rgba(255, 255, 255, 0.8);
         }
 
-
-        /* =====================================================
-           ADMIN MODE VISUAL
-        ===================================================== */
-
-        body.admin-active
-        #viewport {
-
+        body.admin-active #viewport {
             cursor: crosshair;
         }
 
-
-        body.admin-active
-        .marker {
-
+        body.admin-active .marker {
             cursor: move;
         }
 
-
-        /* =====================================================
-           SCROLLBAR ADMIN
-        ===================================================== */
-
         .admin-panel::-webkit-scrollbar {
-
             width: 5px;
         }
 
-
         .admin-panel::-webkit-scrollbar-track {
-
             background: transparent;
         }
 
-
         .admin-panel::-webkit-scrollbar-thumb {
-
-            background:
-                rgba(255,255,255,0.15);
-
+            background: rgba(255, 255, 255, 0.15);
             border-radius: 10px;
         }
 
-
-        /* =====================================================
-           MOBILE
-        ===================================================== */
-
         @media (max-width: 700px) {
-
             .header {
                 left: 15px;
                 top: 15px;
             }
 
-
             .legend {
-
                 top: 15px;
                 right: 15px;
-
                 width: 190px;
             }
 
-
             .admin-panel {
-
                 left: 15px;
                 bottom: 15px;
-
-                width:
-                    calc(100vw - 30px);
-
-                max-height:
-                    70vh;
+                width: calc(100vw - 30px);
+                max-height: 70vh;
             }
 
-
             .controls {
-
                 right: 15px;
                 bottom: 15px;
             }
-
         }
-
     </style>
-
 </head>
-
 
 <body>
 
-
 <div id="app">
-
-
-    <!-- =====================================================
-         KARTE
-    ===================================================== -->
 
     <div id="viewport">
 
         <div id="world">
-
 
             <img
                 id="map"
@@ -966,197 +521,16 @@
                 alt="Karte"
             >
 
-
             <div id="mapShade"></div>
 
-
-            <!-- =================================================
-                 KOKS
-            ================================================= -->
-
-            <div
-                class="marker"
-                data-id="koks-1"
-                data-category="koks"
-                style="
-                    left: 5169px;
-                    top: 2251px;
-                    --marker-color: #28c7c0;
-                "
-            >
-
-                <div class="marker-ring"></div>
-
-                <div class="marker-dot"></div>
-
-                <div class="marker-label">
-
-                    <span class="marker-label-icon">
-                        🧪
-                    </span>
-
-                    <span>
-                        Koks – 1. Verarbeiter
-                    </span>
-
-                </div>
-
-            </div>
-
-
-            <div
-                class="marker"
-                data-id="koks-2"
-                data-category="koks"
-                style="
-                    left: 5258px;
-                    top: 1360px;
-                    --marker-color: #28c7c0;
-                "
-            >
-
-                <div class="marker-ring"></div>
-
-                <div class="marker-dot"></div>
-
-                <div class="marker-label">
-
-                    <span class="marker-label-icon">
-                        🧪
-                    </span>
-
-                    <span>
-                        Koks – 2. Verarbeiter
-                    </span>
-
-                </div>
-
-            </div>
-
-
-            <!-- =================================================
-                 OPIUM
-            ================================================= -->
-
-            <div
-                class="marker"
-                data-id="opium-1"
-                data-category="opium"
-                style="
-                    left: 4411px;
-                    top: 2274px;
-                    --marker-color: #e05b6f;
-                "
-            >
-
-                <div class="marker-ring"></div>
-
-                <div class="marker-dot"></div>
-
-                <div class="marker-label">
-
-                    <span class="marker-label-icon">
-                        🌿
-                    </span>
-
-                    <span>
-                        Opium – 1. Verarbeiter
-                    </span>
-
-                </div>
-
-            </div>
-
-
-            <div
-                class="marker"
-                data-id="opium-2"
-                data-category="opium"
-                style="
-                    left: 3721px;
-                    top: 3790px;
-                    --marker-color: #e05b6f;
-                "
-            >
-
-                <div class="marker-ring"></div>
-
-                <div class="marker-dot"></div>
-
-                <div class="marker-label">
-
-                    <span class="marker-label-icon">
-                        🌿
-                    </span>
-
-                    <span>
-                        Opium – 2. Verarbeiter
-                    </span>
-
-                </div>
-
-            </div>
-
-
-            <!-- =================================================
-                 PILZ
-            ================================================= -->
-
-            <div
-                class="marker"
-                data-id="pilz-1"
-                data-category="pilz"
-                style="
-                    left: 5949px;
-                    top: 4124px;
-                    --marker-color: #d0b83f;
-                "
-            >
-
-                <div class="marker-ring"></div>
-
-                <div class="marker-dot"></div>
-
-                <div class="marker-label">
-
-                    <span class="marker-label-icon">
-                        🍄
-                    </span>
-
-                    <span>
-                        Pilz – Sammler
-                    </span>
-
-                </div>
-
-            </div>
-
-
         </div>
 
     </div>
-
-
-    <!-- =====================================================
-         HEADER
-    ===================================================== -->
 
     <div class="header">
-
-        <div class="title">
-            Routenkarte
-        </div>
-
-        <div class="subtitle">
-            Interaktive Übersicht
-        </div>
-
+        <div class="title">Routenkarte</div>
+        <div class="subtitle">Interaktive Übersicht</div>
     </div>
-
-
-    <!-- =====================================================
-         LEGENDE
-    ===================================================== -->
 
     <div class="legend">
 
@@ -1164,75 +538,37 @@
             Routen
         </div>
 
-
         <div
             class="legend-item"
             data-category="koks"
             onclick="toggleCategory('koks')"
         >
-
-            <div class="legend-icon">
-                🧪
-            </div>
-
-            <div class="legend-name">
-                Koks
-            </div>
-
-            <div class="legend-count">
-                2
-            </div>
-
+            <div class="legend-icon">🧪</div>
+            <div class="legend-name">Koks</div>
+            <div class="legend-count">0</div>
         </div>
-
 
         <div
             class="legend-item"
             data-category="opium"
             onclick="toggleCategory('opium')"
         >
-
-            <div class="legend-icon">
-                🌿
-            </div>
-
-            <div class="legend-name">
-                Opium
-            </div>
-
-            <div class="legend-count">
-                2
-            </div>
-
+            <div class="legend-icon">🌿</div>
+            <div class="legend-name">Opium</div>
+            <div class="legend-count">0</div>
         </div>
-
 
         <div
             class="legend-item"
             data-category="pilz"
             onclick="toggleCategory('pilz')"
         >
-
-            <div class="legend-icon">
-                🍄
-            </div>
-
-            <div class="legend-name">
-                Pilz
-            </div>
-
-            <div class="legend-count">
-                1
-            </div>
-
+            <div class="legend-icon">🍄</div>
+            <div class="legend-name">Pilz</div>
+            <div class="legend-count">0</div>
         </div>
 
     </div>
-
-
-    <!-- =====================================================
-         ZOOM CONTROLS
-    ===================================================== -->
 
     <div class="controls">
 
@@ -1244,7 +580,6 @@
             +
         </button>
 
-
         <button
             class="control-btn"
             onclick="zoomOut()"
@@ -1252,7 +587,6 @@
         >
             −
         </button>
-
 
         <button
             class="control-btn"
@@ -1264,13 +598,7 @@
 
     </div>
 
-
-    <!-- =====================================================
-         ADMIN PANEL
-    ===================================================== -->
-
     <div class="admin-panel">
-
 
         <div class="admin-header">
 
@@ -1284,7 +612,6 @@
 
         </div>
 
-
         <div class="admin-info">
 
             Ausgewählt:
@@ -1295,26 +622,16 @@
             <br>
 
             X:
-            <strong id="adminX">
-                —
-            </strong>
+            <strong id="adminX">—</strong>
 
             &nbsp;&nbsp;
 
             Y:
-            <strong id="adminY">
-                —
-            </strong>
+            <strong id="adminY">—</strong>
 
         </div>
 
-
-        <!-- =================================================
-             EDITOR
-        ================================================= -->
-
         <div class="admin-editor">
-
 
             <label for="adminName">
                 Name
@@ -1325,7 +642,6 @@
                 id="adminName"
                 placeholder="Punktname"
             >
-
 
             <label for="adminCategory">
                 Kategorie
@@ -1346,7 +662,6 @@
                 </option>
 
             </select>
-
 
             <label for="adminColor">
                 Farbe
@@ -1371,11 +686,6 @@
 
         </div>
 
-
-        <!-- =================================================
-             EDITIEREN
-        ================================================= -->
-
         <div class="admin-buttons">
 
             <button
@@ -1386,11 +696,6 @@
             </button>
 
         </div>
-
-
-        <!-- =================================================
-             NEU / KOPIEREN
-        ================================================= -->
 
         <div class="admin-buttons">
 
@@ -1410,11 +715,6 @@
 
         </div>
 
-
-        <!-- =================================================
-             LÖSCHEN
-        ================================================= -->
-
         <div class="admin-buttons">
 
             <button
@@ -1425,11 +725,6 @@
             </button>
 
         </div>
-
-
-        <!-- =================================================
-             SPEICHERN
-        ================================================= -->
 
         <div class="admin-buttons">
 
@@ -1449,7 +744,6 @@
 
         </div>
 
-
         <div class="admin-buttons">
 
             <button
@@ -1467,11 +761,6 @@
             </button>
 
         </div>
-
-
-        <!-- =================================================
-             HINWEIS
-        ================================================= -->
 
         <div class="admin-hint">
 
@@ -1500,9 +789,7 @@
 
         </div>
 
-
     </div>
-
 
 </div>
 
@@ -1511,84 +798,41 @@
 
 <script>
 
-
-/* =========================================================
-   KONFIGURATION
-========================================================= */
-
 const MAP_WIDTH = 9126;
 const MAP_HEIGHT = 7022;
 
-
-/* =========================================================
-   VIEW
-========================================================= */
-
-const viewport =
-    document.getElementById("viewport");
-
-const world =
-    document.getElementById("world");
-
+const viewport = document.getElementById("viewport");
+const world = document.getElementById("world");
 
 let scale = 0.5;
-
 let offsetX = 0;
 let offsetY = 0;
 
-
-/*
-    Kategorien
-*/
-
 const categoryState = {
-
     koks: true,
     opium: true,
     pilz: true
-
 };
 
-
-/*
-    Admin
-*/
-
 let adminMode = false;
-
 let selectedMarker = null;
-
 let markerCounter = 1000;
 
-
-/*
-    Dragging Karte
-*/
-
 let isPanning = false;
-
 let panStartX = 0;
 let panStartY = 0;
-
 let panOriginX = 0;
 let panOriginY = 0;
 
-
-/*
-    Dragging Marker
-*/
-
 let isDraggingMarker = false;
-
 let markerDragStartX = 0;
 let markerDragStartY = 0;
-
 let markerOriginX = 0;
 let markerOriginY = 0;
 
 
 /* =========================================================
-   VIEW AKTUALISIEREN
+   VIEW
 ========================================================= */
 
 function updateWorldTransform() {
@@ -1598,62 +842,28 @@ function updateWorldTransform() {
 
 }
 
-
-/* =========================================================
-   VIEW INITIALISIEREN
-========================================================= */
-
 function resetView() {
 
-    const vw =
-        viewport.clientWidth;
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
 
-    const vh =
-        viewport.clientHeight;
+    const scaleX = vw / MAP_WIDTH;
+    const scaleY = vh / MAP_HEIGHT;
 
-
-    /*
-        Karte so skalieren,
-        dass sie komplett sichtbar ist.
-    */
-
-    const scaleX =
-        vw / MAP_WIDTH;
-
-    const scaleY =
-        vh / MAP_HEIGHT;
-
-
-    scale =
-        Math.min(
-            scaleX,
-            scaleY
-        );
-
-
-    /*
-        Mindest-Zoom
-    */
-
-    scale =
-        Math.max(
-            scale,
-            0.05
-        );
-
+    scale = Math.max(
+        Math.min(scaleX, scaleY),
+        0.05
+    );
 
     offsetX =
         (vw - MAP_WIDTH * scale) / 2;
 
-
     offsetY =
         (vh - MAP_HEIGHT * scale) / 2;
-
 
     updateWorldTransform();
 
 }
-
 
 window.addEventListener(
     "resize",
@@ -1665,25 +875,12 @@ window.addEventListener(
    ZOOM
 ========================================================= */
 
-function zoomAt(
-    newScale,
-    mouseX,
-    mouseY
-) {
+function zoomAt(newScale, mouseX, mouseY) {
 
-    newScale =
-        Math.max(
-            0.05,
-            Math.min(
-                3,
-                newScale
-            )
-        );
-
-
-    /*
-        Punkt unter Maus behalten.
-    */
+    newScale = Math.max(
+        0.05,
+        Math.min(3, newScale)
+    );
 
     const worldX =
         (mouseX - offsetX) / scale;
@@ -1691,28 +888,22 @@ function zoomAt(
     const worldY =
         (mouseY - offsetY) / scale;
 
-
     offsetX =
         mouseX - worldX * newScale;
 
     offsetY =
         mouseY - worldY * newScale;
 
-
-    scale =
-        newScale;
-
+    scale = newScale;
 
     updateWorldTransform();
 
 }
 
-
 function zoomIn() {
 
     const rect =
         viewport.getBoundingClientRect();
-
 
     zoomAt(
         scale * 1.25,
@@ -1722,12 +913,10 @@ function zoomIn() {
 
 }
 
-
 function zoomOut() {
 
     const rect =
         viewport.getBoundingClientRect();
-
 
     zoomAt(
         scale / 1.25,
@@ -1737,35 +926,23 @@ function zoomOut() {
 
 }
 
-
-/* =========================================================
-   MAUS-WHEEL ZOOM
-========================================================= */
-
 viewport.addEventListener(
     "wheel",
     function(e) {
 
         e.preventDefault();
 
-
         const rect =
             viewport.getBoundingClientRect();
-
 
         const mouseX =
             e.clientX - rect.left;
 
-
         const mouseY =
             e.clientY - rect.top;
 
-
         const factor =
-            e.deltaY < 0
-                ? 1.12
-                : 0.89;
-
+            e.deltaY < 0 ? 1.12 : 0.89;
 
         zoomAt(
             scale * factor,
@@ -1791,13 +968,6 @@ viewport.addEventListener(
         if (e.button !== 0)
             return;
 
-
-        /*
-            Wenn direkt ein Marker
-            getroffen wurde, übernimmt
-            der Marker das Dragging.
-        */
-
         if (
             adminMode &&
             e.target.closest(".marker")
@@ -1809,34 +979,22 @@ viewport.addEventListener(
             );
 
             return;
-
         }
 
-
         isPanning = true;
-
 
         viewport.classList.add(
             "dragging"
         );
 
+        panStartX = e.clientX;
+        panStartY = e.clientY;
 
-        panStartX =
-            e.clientX;
-
-        panStartY =
-            e.clientY;
-
-
-        panOriginX =
-            offsetX;
-
-        panOriginY =
-            offsetY;
+        panOriginX = offsetX;
+        panOriginY = offsetY;
 
     }
 );
-
 
 window.addEventListener(
     "mousemove",
@@ -1847,40 +1005,31 @@ window.addEventListener(
             moveMarker(e);
 
             return;
-
         }
-
 
         if (!isPanning)
             return;
-
 
         offsetX =
             panOriginX +
             (e.clientX - panStartX);
 
-
         offsetY =
             panOriginY +
             (e.clientY - panStartY);
-
 
         updateWorldTransform();
 
     }
 );
 
-
 window.addEventListener(
     "mouseup",
     function() {
 
         if (isDraggingMarker) {
-
             finishMarkerDrag();
-
         }
-
 
         isPanning = false;
 
@@ -1893,127 +1042,75 @@ window.addEventListener(
 
 
 /* =========================================================
-   MARKER DRAG START
+   MARKER DRAG
 ========================================================= */
 
-function startMarkerDrag(
-    e,
-    marker
-) {
+function startMarkerDrag(e, marker) {
 
     if (!adminMode)
         return;
 
-
     e.preventDefault();
-
     e.stopPropagation();
-
 
     selectMarker(marker);
 
-
     isDraggingMarker = true;
 
-
-    markerDragStartX =
-        e.clientX;
-
-    markerDragStartY =
-        e.clientY;
-
+    markerDragStartX = e.clientX;
+    markerDragStartY = e.clientY;
 
     markerOriginX =
-        parseFloat(
-            marker.style.left
-        );
-
+        parseFloat(marker.style.left);
 
     markerOriginY =
-        parseFloat(
-            marker.style.top
-        );
+        parseFloat(marker.style.top);
 
 }
-
-
-/* =========================================================
-   MARKER BEWEGEN
-========================================================= */
 
 function moveMarker(e) {
 
     if (!selectedMarker)
         return;
 
-
     const deltaX =
-        (e.clientX - markerDragStartX)
-        / scale;
-
+        (e.clientX - markerDragStartX) / scale;
 
     const deltaY =
-        (e.clientY - markerDragStartY)
-        / scale;
-
+        (e.clientY - markerDragStartY) / scale;
 
     let x =
         markerOriginX + deltaX;
 
-
     let y =
         markerOriginY + deltaY;
 
+    x = Math.max(
+        0,
+        Math.min(MAP_WIDTH, x)
+    );
 
-    /*
-        Innerhalb der Karte halten.
-    */
-
-    x =
-        Math.max(
-            0,
-            Math.min(
-                MAP_WIDTH,
-                x
-            )
-        );
-
-
-    y =
-        Math.max(
-            0,
-            Math.min(
-                MAP_HEIGHT,
-                y
-            )
-        );
-
+    y = Math.max(
+        0,
+        Math.min(MAP_HEIGHT, y)
+    );
 
     selectedMarker.style.left =
         x + "px";
 
-
     selectedMarker.style.top =
         y + "px";
-
 
     updateAdminPanel();
 
 }
-
-
-/* =========================================================
-   MARKER DRAG ENDE
-========================================================= */
 
 function finishMarkerDrag() {
 
     if (!isDraggingMarker)
         return;
 
-
     isDraggingMarker = false;
-
 
     savePositions();
 
@@ -2031,23 +1128,18 @@ document.addEventListener(
         const marker =
             e.target.closest(".marker");
 
-
         if (!marker)
             return;
-
 
         if (!adminMode)
             return;
 
-
         e.stopPropagation();
-
 
         selectMarker(marker);
 
     }
 );
-
 
 function selectMarker(marker) {
 
@@ -2061,15 +1153,11 @@ function selectMarker(marker) {
 
         });
 
-
-    selectedMarker =
-        marker;
-
+    selectedMarker = marker;
 
     marker.classList.add(
         "admin-selected"
     );
-
 
     updateAdminPanel();
 
@@ -2077,7 +1165,7 @@ function selectMarker(marker) {
 
 
 /* =========================================================
-   ADMIN PANEL AKTUALISIEREN
+   ADMIN PANEL
 ========================================================= */
 
 function updateAdminPanel() {
@@ -2087,153 +1175,103 @@ function updateAdminPanel() {
             "adminSelected"
         );
 
-
     const x =
         document.getElementById(
             "adminX"
         );
-
 
     const y =
         document.getElementById(
             "adminY"
         );
 
-
     const name =
         document.getElementById(
             "adminName"
         );
-
 
     const category =
         document.getElementById(
             "adminCategory"
         );
 
-
     const color =
         document.getElementById(
             "adminColor"
         );
-
 
     const colorText =
         document.getElementById(
             "adminColorText"
         );
 
-
     if (!selectedMarker) {
 
         selected.textContent =
             "Kein Punkt";
 
+        x.textContent = "—";
+        y.textContent = "—";
 
-        x.textContent =
-            "—";
+        name.value = "";
 
+        category.value = "koks";
 
-        y.textContent =
-            "—";
-
-
-        name.value =
-            "";
-
-
-        category.value =
-            "koks";
-
-
-        color.value =
-            "#28c7c0";
-
-
-        colorText.value =
-            "#28c7c0";
-
+        color.value = "#28c7c0";
+        colorText.value = "#28c7c0";
 
         return;
-
     }
-
 
     const markerX =
         parseFloat(
             selectedMarker.style.left
         );
 
-
     const markerY =
         parseFloat(
             selectedMarker.style.top
         );
-
 
     const label =
         selectedMarker.querySelector(
             ".marker-label span:last-child"
         );
 
-
     selected.textContent =
         label
             ? label.textContent.trim()
             : "Punkt";
 
-
     x.textContent =
-        Math.round(markerX) +
-        " px";
-
+        Math.round(markerX) + " px";
 
     y.textContent =
-        Math.round(markerY) +
-        " px";
-
+        Math.round(markerY) + " px";
 
     name.value =
         label
             ? label.textContent.trim()
             : "";
 
-
     category.value =
         selectedMarker.dataset.category ||
         "koks";
-
 
     let markerColor =
         selectedMarker.style.getPropertyValue(
             "--marker-color"
         );
 
-
     if (!markerColor) {
-
-        markerColor =
-            "#28c7c0";
-
+        markerColor = "#28c7c0";
     }
-
-
-    /*
-        Browser kann rgb(...) zurückgeben.
-        Für den Color Picker brauchen
-        wir aber HEX.
-    */
 
     markerColor =
         normalizeColor(markerColor);
 
-
-    color.value =
-        markerColor;
-
-
-    colorText.value =
-        markerColor;
+    color.value = markerColor;
+    colorText.value = markerColor;
 
 }
 
@@ -2251,9 +1289,7 @@ function applyPointChanges() {
         );
 
         return;
-
     }
-
 
     const name =
         document
@@ -2261,19 +1297,16 @@ function applyPointChanges() {
             .value
             .trim();
 
-
     const category =
         document
             .getElementById("adminCategory")
             .value;
-
 
     const color =
         document
             .getElementById("adminColorText")
             .value
             .trim();
-
 
     if (!name) {
 
@@ -2282,9 +1315,7 @@ function applyPointChanges() {
         );
 
         return;
-
     }
-
 
     if (
         !/^#[0-9A-Fa-f]{6}$/.test(color)
@@ -2295,63 +1326,45 @@ function applyPointChanges() {
         );
 
         return;
-
     }
-
 
     selectedMarker.dataset.category =
         category;
-
 
     selectedMarker.style.setProperty(
         "--marker-color",
         color
     );
 
-
     const label =
         selectedMarker.querySelector(
             ".marker-label span:last-child"
         );
 
-
     if (label) {
-
-        label.textContent =
-            name;
-
+        label.textContent = name;
     }
-
-
-    /*
-        Icon passend zur Kategorie
-    */
 
     const icon =
         selectedMarker.querySelector(
             ".marker-label-icon"
         );
 
-
     if (icon) {
-
         icon.textContent =
             getCategoryIcon(category);
-
     }
-
 
     savePositions();
 
     updateLegend();
-
     updateAdminPanel();
 
 }
 
 
 /* =========================================================
-   KATEGORIE ICON
+   ICON
 ========================================================= */
 
 function getCategoryIcon(category) {
@@ -2376,7 +1389,7 @@ function getCategoryIcon(category) {
 
 
 /* =========================================================
-   FARBE PICKER
+   FARBE
 ========================================================= */
 
 document
@@ -2389,12 +1402,10 @@ document
                 .getElementById(
                     "adminColorText"
                 )
-                .value =
-                this.value;
+                .value = this.value;
 
         }
     );
-
 
 document
     .getElementById("adminColorText")
@@ -2402,9 +1413,7 @@ document
         "input",
         function() {
 
-            const value =
-                this.value;
-
+            const value = this.value;
 
             if (
                 /^#[0-9A-Fa-f]{6}$/.test(
@@ -2416,8 +1425,7 @@ document
                     .getElementById(
                         "adminColor"
                     )
-                    .value =
-                    value;
+                    .value = value;
 
             }
 
@@ -2426,48 +1434,35 @@ document
 
 
 /* =========================================================
-   NEUEN PUNKT
+   NEUER PUNKT
 ========================================================= */
 
 function createNewPoint() {
 
     const marker =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
-
-    marker.className =
-        "marker";
-
+    marker.className = "marker";
 
     marker.dataset.id =
         "marker-" +
+        Date.now() +
+        "-" +
         markerCounter++;
-
 
     marker.dataset.category =
         "koks";
 
-
-    /*
-        Startposition Mitte der sichtbaren
-        Kartenfläche.
-    */
-
     const rect =
         viewport.getBoundingClientRect();
 
-
     const centerX =
-        (rect.width / 2 - offsetX)
-        / scale;
-
+        (rect.width / 2 - offsetX) /
+        scale;
 
     const centerY =
-        (rect.height / 2 - offsetY)
-        / scale;
-
+        (rect.height / 2 - offsetY) /
+        scale;
 
     marker.style.left =
         Math.max(
@@ -2478,7 +1473,6 @@ function createNewPoint() {
             )
         ) + "px";
 
-
     marker.style.top =
         Math.max(
             0,
@@ -2488,17 +1482,13 @@ function createNewPoint() {
             )
         ) + "px";
 
-
     marker.style.setProperty(
         "--marker-color",
         "#28c7c0"
     );
 
-
     marker.innerHTML = `
-
         <div class="marker-ring"></div>
-
         <div class="marker-dot"></div>
 
         <div class="marker-label">
@@ -2512,37 +1502,22 @@ function createNewPoint() {
             </span>
 
         </div>
-
     `;
 
+    world.appendChild(marker);
 
-    world.appendChild(
-        marker
-    );
-
-
-    selectMarker(
-        marker
-    );
-
+    selectMarker(marker);
 
     updateLegend();
-
-
-    /*
-        Name direkt fokussieren
-    */
 
     const name =
         document.getElementById(
             "adminName"
         );
 
-
     if (name) {
 
         name.focus();
-
         name.select();
 
     }
@@ -2551,7 +1526,7 @@ function createNewPoint() {
 
 
 /* =========================================================
-   PUNKT KOPIEREN
+   KOPIEREN
 ========================================================= */
 
 function duplicateSelectedPoint() {
@@ -2563,36 +1538,29 @@ function duplicateSelectedPoint() {
         );
 
         return;
-
     }
-
 
     const original =
         selectedMarker;
 
-
     const copy =
-        original.cloneNode(
-            true
-        );
-
+        original.cloneNode(true);
 
     copy.dataset.id =
         "marker-" +
+        Date.now() +
+        "-" +
         markerCounter++;
-
 
     const originalX =
         parseFloat(
             original.style.left
         );
 
-
     const originalY =
         parseFloat(
             original.style.top
         );
-
 
     copy.style.left =
         Math.min(
@@ -2600,19 +1568,16 @@ function duplicateSelectedPoint() {
             originalX + 80
         ) + "px";
 
-
     copy.style.top =
         Math.min(
             MAP_HEIGHT,
             originalY + 80
         ) + "px";
 
-
     const label =
         copy.querySelector(
             ".marker-label span:last-child"
         );
-
 
     if (label) {
 
@@ -2622,26 +1587,20 @@ function duplicateSelectedPoint() {
 
     }
 
-
     original.parentElement.appendChild(
         copy
     );
 
-
-    selectMarker(
-        copy
-    );
-
+    selectMarker(copy);
 
     updateLegend();
-
     updateAdminPanel();
 
 }
 
 
 /* =========================================================
-   PUNKT LÖSCHEN
+   LÖSCHEN
 ========================================================= */
 
 async function deleteSelectedPoint() {
@@ -2653,50 +1612,45 @@ async function deleteSelectedPoint() {
         );
 
         return;
-
     }
-
 
     const label =
         selectedMarker.querySelector(
             ".marker-label span:last-child"
         );
 
-
     const pointName =
         label
             ? label.textContent.trim()
             : "Punkt";
-
 
     if (
         !confirm(
             `Soll "${pointName}" wirklich gelöscht werden?`
         )
     ) {
-
         return;
-
     }
 
-
-    const deletedId = selectedMarker.dataset.id;
+    const deletedId =
+        selectedMarker.dataset.id;
 
     selectedMarker.remove();
 
-    selectedMarker =
-        null;
+    selectedMarker = null;
 
     updateAdminPanel();
     updateLegend();
 
-    await deletePointFromDatabase(deletedId);
+    await deletePointFromDatabase(
+        deletedId
+    );
 
 }
 
 
 /* =========================================================
-   KOORDINATEN KOPIEREN
+   KOORDINATEN
 ========================================================= */
 
 function copyCoordinates() {
@@ -2708,9 +1662,7 @@ function copyCoordinates() {
         );
 
         return;
-
     }
-
 
     const x =
         Math.round(
@@ -2719,7 +1671,6 @@ function copyCoordinates() {
             )
         );
 
-
     const y =
         Math.round(
             parseFloat(
@@ -2727,10 +1678,8 @@ function copyCoordinates() {
             )
         );
 
-
     const text =
         `X: ${x}px\nY: ${y}px`;
-
 
     if (
         navigator.clipboard &&
@@ -2749,35 +1698,22 @@ function copyCoordinates() {
 
     } else {
 
-        /*
-            Fallback für ältere Browser
-        */
-
         const textarea =
             document.createElement(
                 "textarea"
             );
 
-
-        textarea.value =
-            text;
-
+        textarea.value = text;
 
         document.body.appendChild(
             textarea
         );
 
-
         textarea.select();
 
-
-        document.execCommand(
-            "copy"
-        );
-
+        document.execCommand("copy");
 
         textarea.remove();
-
 
         alert(
             "Koordinaten wurden kopiert."
@@ -2792,30 +1728,36 @@ function copyCoordinates() {
    SUPABASE
 ========================================================= */
 
-const SUPABASE_URL = "https://bhkkzabaitdimkjatwup.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_WjTtWipuIYDxNC86fEnLXw_dtx5CA_Y";
-const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY
-);
+const SUPABASE_URL =
+    "https://bhkkzabaitdimkjatwup.supabase.co";
+
+const SUPABASE_PUBLISHABLE_KEY =
+    "sb_publishable_WjTtWipuIYDxNC86fEnLXw_dtx5CA_Y";
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_PUBLISHABLE_KEY
+    );
 
 let databaseReady = false;
 let loadingPoints = false;
 let realtimeChannel = null;
 
+
 /* =========================================================
-   SUPABASE REALTIME
-   Neue / geänderte / gelöschte Punkte werden automatisch
-   an bereits geöffnete Webseiten verteilt.
+   REALTIME
 ========================================================= */
 
 function startRealtimeSync() {
 
-    if (realtimeChannel) return;
+    if (realtimeChannel)
+        return;
 
     realtimeChannel =
         supabaseClient
             .channel("route-points-live")
+
             .on(
                 "postgres_changes",
                 {
@@ -2830,172 +1772,370 @@ function startRealtimeSync() {
                             ? payload.old
                             : payload.new;
 
-                    if (!point || !point.id) return;
+                    if (
+                        !point ||
+                        !point.id
+                    )
+                        return;
 
-                    if (payload.eventType === "DELETE") {
+                    if (
+                        payload.eventType ===
+                        "DELETE"
+                    ) {
 
                         const marker =
                             document.querySelector(
-                                `.marker[data-id="${CSS.escape(point.id)}"]`
+                                `.marker[data-id="${CSS.escape(String(point.id))}"]`
                             );
 
-                        if (marker) marker.remove();
+                        if (marker)
+                            marker.remove();
 
                     } else {
 
                         const existing =
                             document.querySelector(
-                                `.marker[data-id="${CSS.escape(point.id)}"]`
+                                `.marker[data-id="${CSS.escape(String(point.id))}"]`
                             );
 
-                        if (existing) existing.remove();
+                        if (existing)
+                            existing.remove();
 
-                        createMarkerFromData(point);
+                        createMarkerFromData(
+                            point
+                        );
 
                         const marker =
                             document.querySelector(
-                                `.marker[data-id="${CSS.escape(point.id)}"]`
+                                `.marker[data-id="${CSS.escape(String(point.id))}"]`
                             );
 
-                        if (marker && categoryState[point.category] === false) {
-                            marker.style.display = "none";
+                        if (
+                            marker &&
+                            categoryState[
+                                point.category
+                            ] === false
+                        ) {
+
+                            marker.style.display =
+                                "none";
+
                         }
+
                     }
 
                     updateLegend();
+
                 }
             )
-            .subscribe(function(status) {
-                console.log("Supabase Realtime:", status);
-            });
+
+            .subscribe(
+                function(status) {
+
+                    console.log(
+                        "Supabase Realtime:",
+                        status
+                    );
+
+                }
+            );
+
 }
 
+
 /* =========================================================
-   PUNKTE AUS DER DATENBANK LADEN
+   LADEN
 ========================================================= */
 
 async function loadSavedPositions() {
 
-    if (loadingPoints) return;
+    if (loadingPoints)
+        return;
+
     loadingPoints = true;
 
     try {
-        const { data, error } = await supabaseClient
-            .from("route_points")
-            .select("id,name,category,x,y,color,icon,updated_at")
-            .order("id");
 
-        if (error) throw error;
+        const {
+            data,
+            error
+        } =
+            await supabaseClient
+                .from("route_points")
+                .select(
+                    "id,name,category,x,y,color,icon,updated_at"
+                )
+                .order("id");
+
+        if (error)
+            throw error;
 
         document
             .querySelectorAll(".marker")
-            .forEach(function(marker) {
-                marker.remove();
-            });
+            .forEach(
+                function(marker) {
+                    marker.remove();
+                }
+            );
 
-        data.forEach(function(point) {
-            createMarkerFromData(point);
-        });
+        data.forEach(
+            function(point) {
+                createMarkerFromData(
+                    point
+                );
+            }
+        );
 
         databaseReady = true;
+
         updateLegend();
+
         startRealtimeSync();
-        console.log("Routenpunkte aus Supabase geladen:", data);
+
+        console.log(
+            "Routenpunkte aus Supabase geladen:",
+            data
+        );
 
     } catch (error) {
-        console.error("Supabase: Punkte konnten nicht geladen werden.", error);
-        alert("Die Routenpunkte konnten nicht aus der Datenbank geladen werden. Bitte prüfe die Supabase-Konfiguration.");
+
+        console.error(
+            "Supabase: Punkte konnten nicht geladen werden.",
+            error
+        );
+
+        alert(
+            "Die Routenpunkte konnten nicht aus der Datenbank geladen werden.\n\n" +
+            "Fehler: " +
+            (error.message || "Unbekannter Fehler")
+        );
+
         updateLegend();
 
     } finally {
+
         loadingPoints = false;
+
     }
+
 }
 
+
 /* =========================================================
-   PUNKTE IN DER DATENBANK SPEICHERN
+   SPEICHERN
 ========================================================= */
 
 async function savePositions() {
 
     const markers =
-        document.querySelectorAll(".marker");
+        document.querySelectorAll(
+            ".marker"
+        );
 
     const data = [];
 
-    markers.forEach(function(marker, index) {
+    markers.forEach(
+        function(marker, index) {
 
-        const label =
-            marker.querySelector(".marker-label span:last-child");
+            const label =
+                marker.querySelector(
+                    ".marker-label span:last-child"
+                );
 
-        const icon =
-            marker.querySelector(".marker-label-icon");
+            const icon =
+                marker.querySelector(
+                    ".marker-label-icon"
+                );
 
-        const color =
-            normalizeColor(
-                marker.style.getPropertyValue("--marker-color") ||
-                "#28c7c0"
-            );
+            const color =
+                normalizeColor(
+                    marker.style.getPropertyValue(
+                        "--marker-color"
+                    ) || "#28c7c0"
+                );
 
-        data.push({
-            id: marker.dataset.id || "marker-" + index,
-            x: parseFloat(marker.style.left),
-            y: parseFloat(marker.style.top),
-            category: marker.dataset.category || "koks",
-            color: color,
-            name: label ? label.textContent.trim() : "Punkt",
-            icon: icon ? icon.textContent.trim() : "📍"
-        });
-    });
+            const id =
+                marker.dataset.id ||
+                "marker-" +
+                Date.now() +
+                "-" +
+                index;
+
+            marker.dataset.id = id;
+
+            data.push({
+
+                id: id,
+
+                x: parseFloat(
+                    marker.style.left
+                ),
+
+                y: parseFloat(
+                    marker.style.top
+                ),
+
+                category:
+                    marker.dataset.category ||
+                    "koks",
+
+                color: color,
+
+                name:
+                    label
+                        ? label.textContent.trim()
+                        : "Punkt",
+
+                icon:
+                    icon
+                        ? icon.textContent.trim()
+                        : "📍"
+
+            });
+
+        }
+    );
 
     if (!databaseReady) {
-        console.warn("Supabase ist noch nicht bereit. Speichern abgebrochen.");
-        return;
-    }
 
-    try {
-        const { error } = await supabaseClient
-            .from("route_points")
-            .upsert(data, { onConflict: "id" });
-
-        if (error) throw error;
-
-        console.log("Routenkarte in Supabase gespeichert:", data);
-
-    } catch (error) {
-        console.error("Supabase: Speichern fehlgeschlagen.", error);
+        console.warn(
+            "Supabase ist noch nicht bereit. Speichern abgebrochen."
+        );
 
         alert(
-            "Speichern fehlgeschlagen.\n\n" +
-            "Fehler: " + (error.message || "Unbekannter Fehler") +
-            "\n\nCode: " + (error.code || "—") +
-            "\n\nDetails: " + (error.details || "—") +
-            "\n\nHint: " + (error.hint || "—")
+            "Die Datenbank ist noch nicht bereit.\nBitte kurz warten und erneut versuchen."
         );
+
+        return;
+
     }
+
+    if (data.length === 0) {
+
+        console.warn(
+            "Keine Punkte zum Speichern vorhanden."
+        );
+
+        return;
+
+    }
+
+    console.log(
+        "Supabase: Speichere folgende Daten:",
+        data
+    );
+
+    try {
+
+        const {
+            data: savedData,
+            error
+        } =
+            await supabaseClient
+                .from("route_points")
+                .upsert(
+                    data,
+                    {
+                        onConflict: "id"
+                    }
+                )
+                .select();
+
+        if (error)
+            throw error;
+
+        console.log(
+            "Routenkarte erfolgreich in Supabase gespeichert:",
+            savedData
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Supabase: Speichern fehlgeschlagen.",
+            error
+        );
+
+        console.error(
+            "Supabase Fehlerdetails:",
+            {
+                message: error?.message,
+                code: error?.code,
+                details: error?.details,
+                hint: error?.hint,
+                status: error?.status
+            }
+        );
+
+        /*
+         * WICHTIG:
+         * Hier wird jetzt NICHT mehr nur die alte
+         * allgemeine Meldung angezeigt.
+         * Der tatsächliche Supabase-Fehler wird ausgegeben.
+         */
+
+        alert(
+            "SPEICHERN FEHLGESCHLAGEN\n\n" +
+
+            "Fehler:\n" +
+            (error?.message ||
+                "Unbekannter Fehler") +
+
+            "\n\nCode:\n" +
+            (error?.code || "—") +
+
+            "\n\nDetails:\n" +
+            (error?.details || "—") +
+
+            "\n\nHinweis:\n" +
+            (error?.hint || "—")
+        );
+
+    }
+
 }
 
+
 /* =========================================================
-   EINEN PUNKT AUS DER DATENBANK LÖSCHEN
+   EINEN PUNKT LÖSCHEN
 ========================================================= */
 
 async function deletePointFromDatabase(id) {
 
-    if (!id) return;
+    if (!id)
+        return;
 
     try {
-        const { error } = await supabaseClient
-            .from("route_points")
-            .delete()
-            .eq("id", id);
 
-        if (error) throw error;
+        const {
+            error
+        } =
+            await supabaseClient
+                .from("route_points")
+                .delete()
+                .eq("id", id);
+
+        if (error)
+            throw error;
 
     } catch (error) {
-        console.error("Supabase: Punkt konnte nicht gelöscht werden.", error);
-        alert("Der Punkt konnte nicht aus der Datenbank gelöscht werden.");
+
+        console.error(
+            "Supabase: Punkt konnte nicht gelöscht werden.",
+            error
+        );
+
+        alert(
+            "Der Punkt konnte nicht aus der Datenbank gelöscht werden.\n\n" +
+            "Fehler: " +
+            (error.message ||
+                "Unbekannter Fehler")
+        );
+
     }
+
 }
+
 
 /* =========================================================
    RESET
@@ -3003,25 +2143,50 @@ async function deletePointFromDatabase(id) {
 
 async function resetSavedPositions() {
 
-    if (!confirm("Alle Punkte aus der Online-Datenbank löschen und die ursprünglichen Punkte wiederherstellen?")) {
+    if (
+        !confirm(
+            "Alle Punkte aus der Online-Datenbank löschen und die ursprünglichen Punkte wiederherstellen?"
+        )
+    ) {
         return;
     }
 
     try {
-        const { error } = await supabaseClient
-            .from("route_points")
-            .delete()
-            .neq("id", "__never_match__");
 
-        if (error) throw error;
+        const {
+            error
+        } =
+            await supabaseClient
+                .from("route_points")
+                .delete()
+                .neq(
+                    "id",
+                    "__never_match__"
+                );
+
+        if (error)
+            throw error;
 
         location.reload();
 
     } catch (error) {
-        console.error("Supabase: Zurücksetzen fehlgeschlagen.", error);
-        alert("Die Datenbank konnte nicht zurückgesetzt werden.");
+
+        console.error(
+            "Supabase: Zurücksetzen fehlgeschlagen.",
+            error
+        );
+
+        alert(
+            "Die Datenbank konnte nicht zurückgesetzt werden.\n\n" +
+            "Fehler: " +
+            (error.message ||
+                "Unbekannter Fehler")
+        );
+
     }
+
 }
+
 
 /* =========================================================
    MARKER AUS DATEN ERSTELLEN
@@ -3034,11 +2199,17 @@ function createMarkerFromData(point) {
 
     marker.className = "marker";
 
-    marker.dataset.id = point.id;
-    marker.dataset.category = point.category || "koks";
+    marker.dataset.id =
+        String(point.id);
 
-    marker.style.left = point.x + "px";
-    marker.style.top = point.y + "px";
+    marker.dataset.category =
+        point.category || "koks";
+
+    marker.style.left =
+        point.x + "px";
+
+    marker.style.top =
+        point.y + "px";
 
     marker.style.setProperty(
         "--marker-color",
@@ -3046,41 +2217,51 @@ function createMarkerFromData(point) {
     );
 
     marker.innerHTML = `
+
         <div class="marker-ring"></div>
+
         <div class="marker-dot"></div>
+
         <div class="marker-label">
+
             <span class="marker-label-icon">
                 ${point.icon || "📍"}
             </span>
+
             <span></span>
+
         </div>
+
     `;
 
     const label =
-        marker.querySelector(".marker-label span:last-child");
+        marker.querySelector(
+            ".marker-label span:last-child"
+        );
 
     if (label) {
-        label.textContent = point.name || "Punkt";
+
+        label.textContent =
+            point.name || "Punkt";
+
     }
 
     world.appendChild(marker);
+
 }
+
 
 /* =========================================================
    KATEGORIEN
 ========================================================= */
 
-function toggleCategory(
-    category
-) {
+function toggleCategory(category) {
 
     categoryState[category] =
         !categoryState[category];
 
-
     const visible =
         categoryState[category];
-
 
     document
         .querySelectorAll(
@@ -3097,12 +2278,10 @@ function toggleCategory(
             }
         );
 
-
     const legend =
         document.querySelector(
             `.legend-item[data-category="${category}"]`
         );
-
 
     if (legend) {
 
@@ -3117,24 +2296,20 @@ function toggleCategory(
 
 
 /* =========================================================
-   LEGENDE AKTUALISIEREN
+   LEGENDE
 ========================================================= */
 
 function updateLegend() {
 
     const counts = {};
 
-
     document
-        .querySelectorAll(
-            ".marker"
-        )
+        .querySelectorAll(".marker")
         .forEach(
             function(marker) {
 
                 const category =
                     marker.dataset.category;
-
 
                 counts[category] =
                     (counts[category] || 0) + 1;
@@ -3142,28 +2317,21 @@ function updateLegend() {
             }
         );
 
-
     document
-        .querySelectorAll(
-            ".legend-item"
-        )
+        .querySelectorAll(".legend-item")
         .forEach(
             function(item) {
 
                 const category =
                     item.dataset.category;
 
-
                 const count =
-                    counts[category] ||
-                    0;
-
+                    counts[category] || 0;
 
                 const countElement =
                     item.querySelector(
                         ".legend-count"
                     );
-
 
                 if (countElement) {
 
@@ -3179,7 +2347,7 @@ function updateLegend() {
 
 
 /* =========================================================
-   ADMIN MODUS
+   ADMIN
 ========================================================= */
 
 document.addEventListener(
@@ -3193,7 +2361,6 @@ document.addEventListener(
         ) {
 
             e.preventDefault();
-
 
             if (adminMode) {
 
@@ -3213,49 +2380,92 @@ document.addEventListener(
 
 async function enterAdminMode() {
 
-    const { data, error } =
+    const {
+        data,
+        error
+    } =
         await supabaseClient.auth.getSession();
 
     if (error) {
-        console.error("Supabase Auth Fehler:", error);
-        alert("Die Anmeldung konnte nicht geprüft werden.");
+
+        console.error(
+            "Supabase Auth Fehler:",
+            error
+        );
+
+        alert(
+            "Die Anmeldung konnte nicht geprüft werden."
+        );
+
         return;
+
     }
 
-    let session = data.session;
+    let session =
+        data.session;
 
     if (!session) {
 
-        const email = prompt("Admin-E-Mail eingeben:");
+        const email =
+            prompt(
+                "Admin-E-Mail eingeben:"
+            );
 
-        if (!email) return;
+        if (!email)
+            return;
 
-        const password = prompt("Admin-Passwort eingeben:");
+        const password =
+            prompt(
+                "Admin-Passwort eingeben:"
+            );
 
-        if (!password) return;
+        if (!password)
+            return;
 
         const result =
-            await supabaseClient.auth.signInWithPassword({
-                email: email.trim(),
-                password: password
-            });
+            await supabaseClient.auth
+                .signInWithPassword({
+
+                    email:
+                        email.trim(),
+
+                    password:
+                        password
+
+                });
 
         if (result.error) {
-            console.error("Login fehlgeschlagen:", result.error);
-            alert("Login fehlgeschlagen: " + result.error.message);
+
+            console.error(
+                "Login fehlgeschlagen:",
+                result.error
+            );
+
+            alert(
+                "Login fehlgeschlagen: " +
+                result.error.message
+            );
+
             return;
+
         }
 
-        session = result.data.session;
+        session =
+            result.data.session;
+
     }
 
     if (!session) {
-        alert("Keine gültige Admin-Anmeldung gefunden.");
+
+        alert(
+            "Keine gültige Admin-Anmeldung gefunden."
+        );
+
         return;
+
     }
 
-    adminMode =
-        true;
+    adminMode = true;
 
     document.body.classList.add(
         "admin-active"
@@ -3266,24 +2476,20 @@ async function enterAdminMode() {
 }
 
 
+/* =========================================================
+   ADMIN VERLASSEN
+========================================================= */
+
 function exitAdminMode() {
 
-    adminMode =
-        false;
+    adminMode = false;
 
+    isDraggingMarker = false;
 
-    isDraggingMarker =
-        false;
-
-
-    selectedMarker =
-        null;
-
+    selectedMarker = null;
 
     document
-        .querySelectorAll(
-            ".marker"
-        )
+        .querySelectorAll(".marker")
         .forEach(
             function(marker) {
 
@@ -3294,11 +2500,9 @@ function exitAdminMode() {
             }
         );
 
-
     document.body.classList.remove(
         "admin-active"
     );
-
 
     updateAdminPanel();
 
@@ -3309,17 +2513,13 @@ function exitAdminMode() {
    FARBE NORMALISIEREN
 ========================================================= */
 
-function normalizeColor(
-    color
-) {
+function normalizeColor(color) {
 
     if (!color)
         return "#28c7c0";
 
-
     color =
         color.trim();
-
 
     if (
         /^#[0-9A-Fa-f]{6}$/.test(
@@ -3331,36 +2531,21 @@ function normalizeColor(
 
     }
 
-
-    /*
-        rgb(...) zu HEX
-    */
-
     const rgb =
         color.match(
             /^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i
         );
 
-
     if (rgb) {
 
         const r =
-            parseInt(
-                rgb[1]
-            );
-
+            parseInt(rgb[1], 10);
 
         const g =
-            parseInt(
-                rgb[2]
-            );
-
+            parseInt(rgb[2], 10);
 
         const b =
-            parseInt(
-                rgb[3]
-            );
-
+            parseInt(rgb[3], 10);
 
         return "#" +
             [r, g, b]
@@ -3369,7 +2554,10 @@ function normalizeColor(
 
                         return value
                             .toString(16)
-                            .padStart(2, "0");
+                            .padStart(
+                                2,
+                                "0"
+                            );
 
                     }
                 )
@@ -3377,31 +2565,7 @@ function normalizeColor(
 
     }
 
-
     return "#28c7c0";
-
-}
-
-
-/* =========================================================
-   HTML ESCAPING
-========================================================= */
-
-function escapeHtml(
-    text
-) {
-
-    const div =
-        document.createElement(
-            "div"
-        );
-
-
-    div.textContent =
-        text;
-
-
-    return div.innerHTML;
 
 }
 
@@ -3412,16 +2576,12 @@ function escapeHtml(
 
 resetView();
 
-
 loadSavedPositions();
-
 
 updateLegend();
 
-
 </script>
 
-
 </body>
-
 </html>
+```
