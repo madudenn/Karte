@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="de">
 
 <head>
@@ -6,792 +7,985 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Routenkarte</title>
 
-    <style>
-        * {
-            box-sizing: border-box;
+```
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #090c10;
+        color: white;
+        font-family: Inter, Arial, Helvetica, sans-serif;
+    }
+
+    body {
+        user-select: none;
+    }
+
+    #app {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: #090c10;
+    }
+
+    #viewport {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        cursor: grab;
+        background: #090c10;
+    }
+
+    #viewport.dragging {
+        cursor: grabbing;
+    }
+
+    #world {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 9126px;
+        height: 7022px;
+        transform-origin: 0 0;
+        will-change: transform;
+    }
+
+    #map {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 9126px;
+        height: 7022px;
+        display: block;
+        max-width: none;
+        pointer-events: none;
+        user-select: none;
+    }
+
+    #mapShade {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 9126px;
+        height: 7022px;
+        pointer-events: none;
+        background: linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.05),
+            rgba(0, 0, 0, 0.12)
+        );
+    }
+
+    /* =========================================================
+       MARKER
+    ========================================================= */
+
+    .marker {
+        position: absolute;
+        width: 0;
+        height: 0;
+        z-index: 20;
+        cursor: pointer;
+        --marker-color: #28c7c0;
+
+        /*
+         * Der Marker wird über die Welt mitskaliert.
+         * updateWorldTransform sorgt dafür, dass er bei
+         * starkem Herauszoomen trotzdem sichtbar bleibt.
+         */
+        transform-origin: 0 0;
+    }
+
+    /*
+     * Äußerer Glow.
+     * Sehr dezent, damit die Karte nicht zugedeckt wird.
+     */
+    .marker-ring {
+        position: absolute;
+        left: -10px;
+        top: -10px;
+        width: 20px;
+        height: 20px;
+
+        border-radius: 50%;
+        border: 1px solid var(--marker-color);
+
+        background: rgba(255, 255, 255, 0.015);
+
+        opacity: 0.72;
+
+        box-shadow:
+            0 0 6px var(--marker-color),
+            0 0 12px var(--marker-color);
+
+        animation: markerPulse 2.8s ease-in-out infinite;
+
+        transition:
+            transform 0.16s ease,
+            opacity 0.16s ease,
+            box-shadow 0.16s ease;
+    }
+
+    /*
+     * Der eigentliche Standortpunkt.
+     * Dieser bleibt klein und präzise.
+     */
+    .marker-dot {
+        position: absolute;
+        left: -4px;
+        top: -4px;
+
+        width: 8px;
+        height: 8px;
+
+        border-radius: 50%;
+
+        background: var(--marker-color);
+
+        border: 1.5px solid white;
+
+        box-shadow:
+            0 0 5px var(--marker-color),
+            0 0 10px var(--marker-color);
+
+        z-index: 3;
+
+        transition:
+            transform 0.16s ease,
+            box-shadow 0.16s ease;
+    }
+
+    /*
+     * Kategorien:
+     *
+     * Koks  = Raute
+     * Opium = Kreis
+     * Pilz  = Sechseck
+     *
+     * Die Formen bleiben bewusst klein.
+     */
+
+    .marker[data-category="koks"] .marker-dot {
+        border-radius: 1px;
+        transform: rotate(45deg);
+    }
+
+    .marker[data-category="opium"] .marker-dot {
+        border-radius: 50%;
+    }
+
+    .marker[data-category="pilz"] .marker-dot {
+        border-radius: 2px;
+        clip-path: polygon(
+            50% 0%,
+            93% 25%,
+            93% 75%,
+            50% 100%,
+            7% 75%,
+            7% 25%
+        );
+    }
+
+    /*
+     * Label:
+     * Standardmäßig unsichtbar.
+     * Nur beim Hover sichtbar.
+     */
+    .marker-label {
+        position: absolute;
+
+        left: 16px;
+        top: -16px;
+
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        padding: 5px 8px;
+
+        white-space: nowrap;
+
+        background: rgba(8, 11, 16, 0.93);
+
+        border: 1px solid rgba(255, 255, 255, 0.12);
+
+        border-left-color: var(--marker-color);
+
+        border-radius: 5px;
+
+        color: white;
+
+        font-size: 11px;
+        font-weight: 600;
+
+        box-shadow:
+            0 5px 15px rgba(0, 0, 0, 0.35);
+
+        opacity: 0;
+        visibility: hidden;
+
+        transform: translateX(-3px);
+
+        transition:
+            opacity 0.14s ease,
+            visibility 0.14s ease,
+            transform 0.14s ease;
+
+        pointer-events: none;
+    }
+
+    .marker-label-icon {
+        display: none;
+    }
+
+    .marker:hover .marker-label {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(0);
+    }
+
+    /*
+     * Hover:
+     * Nur leicht größer.
+     */
+    .marker:hover .marker-ring {
+        transform: scale(1.22);
+        opacity: 0.95;
+
+        box-shadow:
+            0 0 7px var(--marker-color),
+            0 0 16px var(--marker-color);
+    }
+
+    .marker:hover .marker-dot {
+        transform: scale(1.25);
+    }
+
+    .marker[data-category="koks"]:hover .marker-dot {
+        transform: rotate(45deg) scale(1.25);
+    }
+
+    /*
+     * Admin-Auswahl.
+     * Deutlich sichtbar, aber weiterhin kompakt.
+     */
+    .marker.admin-selected {
+        z-index: 9999;
+    }
+
+    .marker.admin-selected .marker-ring {
+        transform: scale(1.45);
+
+        opacity: 1;
+
+        border-color: white;
+
+        box-shadow:
+            0 0 0 1px rgba(255, 255, 255, 0.2),
+            0 0 8px var(--marker-color),
+            0 0 20px var(--marker-color);
+    }
+
+    .marker.admin-selected .marker-dot {
+        transform: scale(1.3);
+
+        box-shadow:
+            0 0 5px white,
+            0 0 12px var(--marker-color),
+            0 0 20px var(--marker-color);
+    }
+
+    .marker.admin-selected[data-category="koks"] .marker-dot {
+        transform: rotate(45deg) scale(1.3);
+    }
+
+    /*
+     * Beim ausgewählten Admin-Punkt wird das Label
+     * dauerhaft angezeigt.
+     */
+    .marker.admin-selected .marker-label {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(0);
+
+        border-color: rgba(255, 255, 255, 0.16);
+        border-left-color: white;
+    }
+
+    @keyframes markerPulse {
+        0%,
+        100% {
+            transform: scale(0.88);
+            opacity: 0.52;
         }
 
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: #090c10;
-            color: white;
-            font-family: Inter, Arial, Helvetica, sans-serif;
+        50% {
+            transform: scale(1.08);
+            opacity: 0.82;
         }
+    }
 
-        body {
-            user-select: none;
-        }
+    /* =========================================================
+       HEADER
+    ========================================================= */
 
-        #app {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            background: #090c10;
-        }
+    .header {
+        position: absolute;
+        left: 25px;
+        top: 25px;
+        z-index: 100;
+        pointer-events: none;
+    }
 
-        #viewport {
-            position: absolute;
-            inset: 0;
-            overflow: hidden;
-            cursor: grab;
-            background: #090c10;
-        }
+    .title {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        text-shadow: 0 3px 15px rgba(0, 0, 0, 0.8);
+    }
 
-        #viewport.dragging {
-            cursor: grabbing;
-        }
+    .subtitle {
+        margin-top: 4px;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.65);
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    }
 
-        #world {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 9126px;
-            height: 7022px;
-            transform-origin: 0 0;
-            will-change: transform;
-        }
+    /* =========================================================
+       LEGENDE
+    ========================================================= */
 
-        #map {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 9126px;
-            height: 7022px;
-            display: block;
-            max-width: none;
-            pointer-events: none;
-            user-select: none;
-        }
+    .legend {
+        position: absolute;
+        top: 25px;
+        right: 25px;
+        z-index: 100;
+        width: 230px;
+        padding: 15px;
+        border-radius: 10px;
+        background: rgba(10, 13, 18, 0.91);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(12px);
+    }
 
-        #mapShade {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 9126px;
-            height: 7022px;
-            pointer-events: none;
-            background: linear-gradient(
-                to bottom,
-                rgba(0, 0, 0, 0.05),
-                rgba(0, 0, 0, 0.12)
-            );
-        }
+    .legend-title {
+        margin-bottom: 12px;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: rgba(255, 255, 255, 0.5);
+    }
 
-        /* MARKER */
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 42px;
+        padding: 7px 8px;
+        border-radius: 7px;
+        cursor: pointer;
+        transition:
+            background 0.15s ease,
+            opacity 0.15s ease;
+    }
 
-        .marker {
-            position: absolute;
-            width: 0;
-            height: 0;
-            z-index: 20;
-            cursor: pointer;
-            --marker-color: #28c7c0;
-        }
+    .legend-item:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
 
-        .marker-ring {
-            position: absolute;
-            left: -15px;
-            top: -15px;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            border: 2px solid var(--marker-color);
-            opacity: 0.55;
-            box-shadow: 0 0 12px var(--marker-color);
-            transition:
-                transform 0.15s ease,
-                box-shadow 0.15s ease;
-        }
+    .legend-item.disabled {
+        opacity: 0.35;
+    }
 
-        .marker-dot {
-            position: absolute;
-            left: -6px;
-            top: -6px;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--marker-color);
-            border: 2px solid white;
-            box-shadow: 0 0 12px var(--marker-color);
-        }
+    .legend-icon {
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        font-size: 16px;
+    }
 
-        .marker-label {
-            position: absolute;
-            left: 20px;
-            top: -18px;
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            padding: 7px 10px;
-            white-space: nowrap;
-            background: rgba(10, 13, 18, 0.92);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 7px;
-            color: white;
-            font-size: 13px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.35);
-            pointer-events: none;
-        }
+    .legend-name {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 600;
+    }
 
-        .marker-label-icon {
-            font-size: 15px;
-        }
+    .legend-count {
+        min-width: 25px;
+        text-align: right;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+    }
 
-        .marker.admin-selected {
-            z-index: 9999;
-        }
+    /* =========================================================
+       CONTROLS
+    ========================================================= */
 
-        .marker.admin-selected .marker-ring {
-            transform: scale(1.45);
-            opacity: 1;
-            border-color: white;
-            box-shadow:
-                0 0 0 2px rgba(255, 255, 255, 0.25),
-                0 0 25px var(--marker-color);
-        }
+    .controls {
+        position: absolute;
+        right: 25px;
+        bottom: 25px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
 
-        .marker.admin-selected .marker-dot {
-            transform: scale(1.25);
-        }
+    .control-btn {
+        width: 44px;
+        height: 44px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        background: rgba(10, 13, 18, 0.92);
+        color: white;
+        font-size: 22px;
+        cursor: pointer;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        transition:
+            background 0.15s ease,
+            transform 0.1s ease;
+    }
 
-        /* HEADER */
+    .control-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .control-btn:active {
+        transform: scale(0.94);
+    }
+
+    /* =========================================================
+       ADMIN
+    ========================================================= */
+
+    .admin-panel {
+        position: absolute;
+        left: 25px;
+        bottom: 25px;
+        z-index: 5000;
+        width: 310px;
+        max-height: calc(100vh - 50px);
+        overflow-y: auto;
+        padding: 17px;
+        border-radius: 11px;
+        background: rgba(10, 13, 18, 0.97);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(16px);
+        display: none;
+    }
+
+    body.admin-active .admin-panel {
+        display: block;
+    }
+
+    .admin-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 15px;
+    }
+
+    .admin-title {
+        font-size: 17px;
+        font-weight: 800;
+    }
+
+    .admin-badge {
+        padding: 4px 7px;
+        border-radius: 5px;
+        background: rgba(40, 199, 192, 0.15);
+        border: 1px solid rgba(40, 199, 192, 0.35);
+        color: #28c7c0;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+    }
+
+    .admin-info {
+        padding: 11px;
+        margin-bottom: 14px;
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.035);
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 11px;
+        line-height: 1.8;
+    }
+
+    .admin-info strong {
+        color: white;
+    }
+
+    .admin-editor {
+        margin-top: 5px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    .admin-editor label {
+        margin-top: 4px;
+        font-size: 10px;
+        color: #89919c;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .admin-editor input,
+    .admin-editor select {
+        width: 100%;
+        height: 36px;
+        padding: 0 10px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 6px;
+        background: #11151b;
+        color: white;
+        outline: none;
+        font-family: inherit;
+    }
+
+    .admin-editor input:focus,
+    .admin-editor select:focus {
+        border-color: #28c7c0;
+    }
+
+    .color-row {
+        display: flex;
+        gap: 8px;
+    }
+
+    .color-row input[type="color"] {
+        width: 45px;
+        padding: 3px;
+        cursor: pointer;
+    }
+
+    .color-row input[type="text"] {
+        flex: 1;
+    }
+
+    .admin-buttons {
+        display: flex;
+        gap: 7px;
+        margin-top: 8px;
+    }
+
+    .admin-button {
+        flex: 1;
+        min-height: 35px;
+        padding: 7px 9px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.045);
+        color: white;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: inherit;
+        transition:
+            background 0.15s ease,
+            border-color 0.15s ease;
+    }
+
+    .admin-button:hover {
+        background: rgba(255, 255, 255, 0.09);
+    }
+
+    .admin-button.primary {
+        border-color: rgba(40, 199, 192, 0.35);
+        background: rgba(40, 199, 192, 0.1);
+        color: #55e4de;
+    }
+
+    .admin-button.primary:hover {
+        background: rgba(40, 199, 192, 0.17);
+    }
+
+    .admin-button.danger {
+        border-color: rgba(220, 70, 80, 0.35);
+        color: #ff6975;
+    }
+
+    .admin-button.danger:hover {
+        background: rgba(220, 70, 80, 0.12);
+    }
+
+    .admin-hint {
+        margin-top: 14px;
+        padding-top: 13px;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        color: rgba(255, 255, 255, 0.42);
+        font-size: 10px;
+        line-height: 1.55;
+    }
+
+    .admin-hint strong {
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    body.admin-active #viewport {
+        cursor: crosshair;
+    }
+
+    body.admin-active .marker {
+        cursor: move;
+    }
+
+    .admin-panel::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    .admin-panel::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .admin-panel::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+    }
+
+    /* =========================================================
+       MOBILE
+    ========================================================= */
+
+    @media (max-width: 700px) {
 
         .header {
-            position: absolute;
-            left: 25px;
-            top: 25px;
-            z-index: 100;
-            pointer-events: none;
+            left: 15px;
+            top: 15px;
         }
 
         .title {
-            font-size: 30px;
-            font-weight: 800;
-            letter-spacing: 0.02em;
-            text-shadow: 0 3px 15px rgba(0, 0, 0, 0.8);
+            font-size: 24px;
         }
-
-        .subtitle {
-            margin-top: 4px;
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.65);
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-        }
-
-        /* LEGENDE */
 
         .legend {
-            position: absolute;
-            top: 25px;
-            right: 25px;
-            z-index: 100;
-            width: 230px;
-            padding: 15px;
-            border-radius: 10px;
-            background: rgba(10, 13, 18, 0.91);
-            border: 1px solid rgba(255, 255, 255, 0.09);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-            backdrop-filter: blur(12px);
+            top: 15px;
+            right: 15px;
+            width: 190px;
         }
-
-        .legend-title {
-            margin-bottom: 12px;
-            font-size: 12px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            min-height: 42px;
-            padding: 7px 8px;
-            border-radius: 7px;
-            cursor: pointer;
-            transition:
-                background 0.15s ease,
-                opacity 0.15s ease;
-        }
-
-        .legend-item:hover {
-            background: rgba(255, 255, 255, 0.06);
-        }
-
-        .legend-item.disabled {
-            opacity: 0.35;
-        }
-
-        .legend-icon {
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.05);
-            font-size: 16px;
-        }
-
-        .legend-name {
-            flex: 1;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .legend-count {
-            min-width: 25px;
-            text-align: right;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        /* CONTROLS */
-
-        .controls {
-            position: absolute;
-            right: 25px;
-            bottom: 25px;
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            gap: 7px;
-        }
-
-        .control-btn {
-            width: 44px;
-            height: 44px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            background: rgba(10, 13, 18, 0.92);
-            color: white;
-            font-size: 22px;
-            cursor: pointer;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-            transition:
-                background 0.15s ease,
-                transform 0.1s ease;
-        }
-
-        .control-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .control-btn:active {
-            transform: scale(0.94);
-        }
-
-        /* ADMIN */
 
         .admin-panel {
-            position: absolute;
-            left: 25px;
-            bottom: 25px;
-            z-index: 5000;
-            width: 310px;
-            max-height: calc(100vh - 50px);
-            overflow-y: auto;
-            padding: 17px;
-            border-radius: 11px;
-            background: rgba(10, 13, 18, 0.97);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.55);
-            backdrop-filter: blur(16px);
-            display: none;
+            left: 15px;
+            bottom: 15px;
+            width: calc(100vw - 30px);
+            max-height: 70vh;
         }
 
-        body.admin-active .admin-panel {
-            display: block;
+        .controls {
+            right: 15px;
+            bottom: 15px;
         }
+    }
+</style>
+```
 
-        .admin-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
-
-        .admin-title {
-            font-size: 17px;
-            font-weight: 800;
-        }
-
-        .admin-badge {
-            padding: 4px 7px;
-            border-radius: 5px;
-            background: rgba(40, 199, 192, 0.15);
-            border: 1px solid rgba(40, 199, 192, 0.35);
-            color: #28c7c0;
-            font-size: 9px;
-            font-weight: 800;
-            letter-spacing: 0.1em;
-        }
-
-        .admin-info {
-            padding: 11px;
-            margin-bottom: 14px;
-            border-radius: 7px;
-            background: rgba(255, 255, 255, 0.035);
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 11px;
-            line-height: 1.8;
-        }
-
-        .admin-info strong {
-            color: white;
-        }
-
-        .admin-editor {
-            margin-top: 5px;
-            display: flex;
-            flex-direction: column;
-            gap: 7px;
-        }
-
-        .admin-editor label {
-            margin-top: 4px;
-            font-size: 10px;
-            color: #89919c;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-
-        .admin-editor input,
-        .admin-editor select {
-            width: 100%;
-            height: 36px;
-            padding: 0 10px;
-            border: 1px solid rgba(255, 255, 255, 0.09);
-            border-radius: 6px;
-            background: #11151b;
-            color: white;
-            outline: none;
-            font-family: inherit;
-        }
-
-        .admin-editor input:focus,
-        .admin-editor select:focus {
-            border-color: #28c7c0;
-        }
-
-        .color-row {
-            display: flex;
-            gap: 8px;
-        }
-
-        .color-row input[type="color"] {
-            width: 45px;
-            padding: 3px;
-            cursor: pointer;
-        }
-
-        .color-row input[type="text"] {
-            flex: 1;
-        }
-
-        .admin-buttons {
-            display: flex;
-            gap: 7px;
-            margin-top: 8px;
-        }
-
-        .admin-button {
-            flex: 1;
-            min-height: 35px;
-            padding: 7px 9px;
-            border: 1px solid rgba(255, 255, 255, 0.09);
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.045);
-            color: white;
-            cursor: pointer;
-            font-size: 11px;
-            font-family: inherit;
-            transition:
-                background 0.15s ease,
-                border-color 0.15s ease;
-        }
-
-        .admin-button:hover {
-            background: rgba(255, 255, 255, 0.09);
-        }
-
-        .admin-button.primary {
-            border-color: rgba(40, 199, 192, 0.35);
-            background: rgba(40, 199, 192, 0.1);
-            color: #55e4de;
-        }
-
-        .admin-button.primary:hover {
-            background: rgba(40, 199, 192, 0.17);
-        }
-
-        .admin-button.danger {
-            border-color: rgba(220, 70, 80, 0.35);
-            color: #ff6975;
-        }
-
-        .admin-button.danger:hover {
-            background: rgba(220, 70, 80, 0.12);
-        }
-
-        .admin-hint {
-            margin-top: 14px;
-            padding-top: 13px;
-            border-top: 1px solid rgba(255, 255, 255, 0.07);
-            color: rgba(255, 255, 255, 0.42);
-            font-size: 10px;
-            line-height: 1.55;
-        }
-
-        .admin-hint strong {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        body.admin-active #viewport {
-            cursor: crosshair;
-        }
-
-        body.admin-active .marker {
-            cursor: move;
-        }
-
-        .admin-panel::-webkit-scrollbar {
-            width: 5px;
-        }
-
-        .admin-panel::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .admin-panel::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 10px;
-        }
-
-        @media (max-width: 700px) {
-            .header {
-                left: 15px;
-                top: 15px;
-            }
-
-            .legend {
-                top: 15px;
-                right: 15px;
-                width: 190px;
-            }
-
-            .admin-panel {
-                left: 15px;
-                bottom: 15px;
-                width: calc(100vw - 30px);
-                max-height: 70vh;
-            }
-
-            .controls {
-                right: 15px;
-                bottom: 15px;
-            }
-        }
-    </style>
 </head>
 
 <body>
 
 <div id="app">
 
-    <div id="viewport">
+```
+<div id="viewport">
 
-        <div id="world">
+    <div id="world">
 
-            <img
-                id="map"
-                src="assets/map.png"
-                width="9126"
-                height="7022"
-                draggable="false"
-                alt="Karte"
-            >
-
-            <div id="mapShade"></div>
-
-        </div>
-
-    </div>
-
-    <div class="header">
-        <div class="title">Routenkarte</div>
-        <div class="subtitle">Interaktive Übersicht</div>
-    </div>
-
-    <div class="legend">
-
-        <div class="legend-title">
-            Routen
-        </div>
-
-        <div
-            class="legend-item"
-            data-category="koks"
-            onclick="toggleCategory('koks')"
+        <img
+            id="map"
+            src="assets/map.png"
+            width="9126"
+            height="7022"
+            draggable="false"
+            alt="Karte"
         >
-            <div class="legend-icon">🧪</div>
-            <div class="legend-name">Koks</div>
-            <div class="legend-count">0</div>
-        </div>
 
-        <div
-            class="legend-item"
-            data-category="opium"
-            onclick="toggleCategory('opium')"
-        >
-            <div class="legend-icon">🌿</div>
-            <div class="legend-name">Opium</div>
-            <div class="legend-count">0</div>
-        </div>
-
-        <div
-            class="legend-item"
-            data-category="pilz"
-            onclick="toggleCategory('pilz')"
-        >
-            <div class="legend-icon">🍄</div>
-            <div class="legend-name">Pilz</div>
-            <div class="legend-count">0</div>
-        </div>
-
-    </div>
-
-    <div class="controls">
-
-        <button
-            class="control-btn"
-            onclick="zoomIn()"
-            title="Hineinzoomen"
-        >
-            +
-        </button>
-
-        <button
-            class="control-btn"
-            onclick="zoomOut()"
-            title="Herauszoomen"
-        >
-            −
-        </button>
-
-        <button
-            class="control-btn"
-            onclick="resetView()"
-            title="Ansicht zurücksetzen"
-        >
-            ↺
-        </button>
-
-    </div>
-
-    <div class="admin-panel">
-
-        <div class="admin-header">
-
-            <div class="admin-title">
-                Karten-Admin
-            </div>
-
-            <div class="admin-badge">
-                ADMIN
-            </div>
-
-        </div>
-
-        <div class="admin-info">
-
-            Ausgewählt:
-            <strong id="adminSelected">
-                Kein Punkt
-            </strong>
-
-            <br>
-
-            X:
-            <strong id="adminX">—</strong>
-
-            &nbsp;&nbsp;
-
-            Y:
-            <strong id="adminY">—</strong>
-
-        </div>
-
-        <div class="admin-editor">
-
-            <label for="adminName">
-                Name
-            </label>
-
-            <input
-                type="text"
-                id="adminName"
-                placeholder="Punktname"
-            >
-
-            <label for="adminCategory">
-                Kategorie
-            </label>
-
-            <select id="adminCategory">
-
-                <option value="koks">
-                    🧪 Koks
-                </option>
-
-                <option value="opium">
-                    🌿 Opium
-                </option>
-
-                <option value="pilz">
-                    🍄 Pilz
-                </option>
-
-            </select>
-
-            <label for="adminColor">
-                Farbe
-            </label>
-
-            <div class="color-row">
-
-                <input
-                    type="color"
-                    id="adminColor"
-                    value="#28c7c0"
-                >
-
-                <input
-                    type="text"
-                    id="adminColorText"
-                    value="#28c7c0"
-                    maxlength="7"
-                >
-
-            </div>
-
-        </div>
-
-        <div class="admin-buttons">
-
-            <button
-                class="admin-button primary"
-                onclick="applyPointChanges()"
-            >
-                Änderungen übernehmen
-            </button>
-
-        </div>
-
-        <div class="admin-buttons">
-
-            <button
-                class="admin-button"
-                onclick="createNewPoint()"
-            >
-                + Neuer Punkt
-            </button>
-
-            <button
-                class="admin-button"
-                onclick="duplicateSelectedPoint()"
-            >
-                Punkt kopieren
-            </button>
-
-        </div>
-
-        <div class="admin-buttons">
-
-            <button
-                class="admin-button danger"
-                onclick="deleteSelectedPoint()"
-            >
-                Punkt löschen
-            </button>
-
-        </div>
-
-        <div class="admin-buttons">
-
-            <button
-                class="admin-button primary"
-                onclick="copyCoordinates()"
-            >
-                Koordinaten kopieren
-            </button>
-
-            <button
-                class="admin-button"
-                onclick="savePositions()"
-            >
-                Speichern
-            </button>
-
-        </div>
-
-        <div class="admin-buttons">
-
-            <button
-                class="admin-button"
-                onclick="resetSavedPositions()"
-            >
-                Zurücksetzen
-            </button>
-
-            <button
-                class="admin-button"
-                onclick="exitAdminMode()"
-            >
-                Schließen
-            </button>
-
-        </div>
-
-        <div class="admin-hint">
-
-            <strong>STRG + SHIFT + A</strong>
-            öffnet/schließt den Admin-Modus.
-
-            <br><br>
-
-            Klicke einen Punkt an, um ihn auszuwählen.
-
-            <br><br>
-
-            Ziehe einen Punkt direkt mit der Maus
-            an die gewünschte Position.
-
-            <br><br>
-
-            Du kannst Punkte umbenennen,
-            neu färben, kopieren, löschen
-            oder komplett neu erstellen.
-
-            <br><br>
-
-            Die Positionen werden in echten
-            9126 × 7022 Kartenpixeln angegeben.
-
-        </div>
+        <div id="mapShade"></div>
 
     </div>
 
 </div>
 
+<div class="header">
+    <div class="title">Routenkarte</div>
+    <div class="subtitle">Interaktive Übersicht</div>
+</div>
+
+<div class="legend">
+
+    <div class="legend-title">
+        Routen
+    </div>
+
+    <div
+        class="legend-item"
+        data-category="koks"
+        onclick="toggleCategory('koks')"
+    >
+        <div class="legend-icon">🧪</div>
+        <div class="legend-name">Koks</div>
+        <div class="legend-count">0</div>
+    </div>
+
+    <div
+        class="legend-item"
+        data-category="opium"
+        onclick="toggleCategory('opium')"
+    >
+        <div class="legend-icon">🌿</div>
+        <div class="legend-name">Opium</div>
+        <div class="legend-count">0</div>
+    </div>
+
+    <div
+        class="legend-item"
+        data-category="pilz"
+        onclick="toggleCategory('pilz')"
+    >
+        <div class="legend-icon">🍄</div>
+        <div class="legend-name">Pilz</div>
+        <div class="legend-count">0</div>
+    </div>
+
+</div>
+
+<div class="controls">
+
+    <button
+        class="control-btn"
+        onclick="zoomIn()"
+        title="Hineinzoomen"
+    >
+        +
+    </button>
+
+    <button
+        class="control-btn"
+        onclick="zoomOut()"
+        title="Herauszoomen"
+    >
+        −
+    </button>
+
+    <button
+        class="control-btn"
+        onclick="resetView()"
+        title="Ansicht zurücksetzen"
+    >
+        ↺
+    </button>
+
+</div>
+
+<div class="admin-panel">
+
+    <div class="admin-header">
+
+        <div class="admin-title">
+            Karten-Admin
+        </div>
+
+        <div class="admin-badge">
+            ADMIN
+        </div>
+
+    </div>
+
+    <div class="admin-info">
+
+        Ausgewählt:
+        <strong id="adminSelected">
+            Kein Punkt
+        </strong>
+
+        <br>
+
+        X:
+        <strong id="adminX">—</strong>
+
+        &nbsp;&nbsp;
+
+        Y:
+        <strong id="adminY">—</strong>
+
+    </div>
+
+    <div class="admin-editor">
+
+        <label for="adminName">
+            Name
+        </label>
+
+        <input
+            type="text"
+            id="adminName"
+            placeholder="Punktname"
+        >
+
+        <label for="adminCategory">
+            Kategorie
+        </label>
+
+        <select id="adminCategory">
+
+            <option value="koks">
+                🧪 Koks
+            </option>
+
+            <option value="opium">
+                🌿 Opium
+            </option>
+
+            <option value="pilz">
+                🍄 Pilz
+            </option>
+
+        </select>
+
+        <label for="adminColor">
+            Farbe
+        </label>
+
+        <div class="color-row">
+
+            <input
+                type="color"
+                id="adminColor"
+                value="#28c7c0"
+            >
+
+            <input
+                type="text"
+                id="adminColorText"
+                value="#28c7c0"
+                maxlength="7"
+            >
+
+        </div>
+
+    </div>
+
+    <div class="admin-buttons">
+
+        <button
+            class="admin-button primary"
+            onclick="applyPointChanges()"
+        >
+            Änderungen übernehmen
+        </button>
+
+    </div>
+
+    <div class="admin-buttons">
+
+        <button
+            class="admin-button"
+            onclick="createNewPoint()"
+        >
+            + Neuer Punkt
+        </button>
+
+        <button
+            class="admin-button"
+            onclick="duplicateSelectedPoint()"
+        >
+            Punkt kopieren
+        </button>
+
+    </div>
+
+    <div class="admin-buttons">
+
+        <button
+            class="admin-button danger"
+            onclick="deleteSelectedPoint()"
+        >
+            Punkt löschen
+        </button>
+
+    </div>
+
+    <div class="admin-buttons">
+
+        <button
+            class="admin-button primary"
+            onclick="copyCoordinates()"
+        >
+            Koordinaten kopieren
+        </button>
+
+        <button
+            class="admin-button"
+            onclick="savePositions()"
+        >
+            Speichern
+        </button>
+
+    </div>
+
+    <div class="admin-buttons">
+
+        <button
+            class="admin-button"
+            onclick="resetSavedPositions()"
+        >
+            Zurücksetzen
+        </button>
+
+        <button
+            class="admin-button"
+            onclick="exitAdminMode()"
+        >
+            Schließen
+        </button>
+
+    </div>
+
+    <div class="admin-hint">
+
+        <strong>STRG + SHIFT + A</strong>
+        öffnet/schließt den Admin-Modus.
+
+        <br><br>
+
+        Klicke einen Punkt an, um ihn auszuwählen.
+
+        <br><br>
+
+        Ziehe einen Punkt direkt mit der Maus
+        an die gewünschte Position.
+
+        <br><br>
+
+        Du kannst Punkte umbenennen,
+        neu färben, kopieren, löschen
+        oder komplett neu erstellen.
+
+        <br><br>
+
+        Die Positionen werden in echten
+        9126 × 7022 Kartenpixeln angegeben.
+
+    </div>
+
+</div>
+```
+
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -838,6 +1032,30 @@ function updateWorldTransform() {
 
     world.style.transform =
         `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+
+    /*
+     * Marker bleiben auf dem Bildschirm leicht erkennbar,
+     * ohne ihre exakte Kartenposition zu verändern.
+     *
+     * Bei normalem Zoom bleibt die Größe nahezu unverändert.
+     * Bei starkem Herauszoomen wird nur eine kleine Mindestgröße
+     * gehalten.
+     */
+    const markerScale = Math.max(
+        0.78,
+        Math.min(1.25, 0.55 / scale)
+    );
+
+    document
+        .querySelectorAll(".marker")
+        .forEach(function(marker) {
+
+            marker.style.setProperty(
+                "--marker-scale",
+                markerScale
+            );
+
+        });
 
 }
 
@@ -1344,92 +1562,12 @@ function applyPointChanges() {
         label.textContent = name;
     }
 
-    const icon =
-        selectedMarker.querySelector(
-            ".marker-label-icon"
-        );
-
-    if (icon) {
-        icon.textContent =
-            getCategoryIcon(category);
-    }
-
     savePositions();
 
     updateLegend();
     updateAdminPanel();
 
 }
-
-
-/* =========================================================
-   ICON
-========================================================= */
-
-function getCategoryIcon(category) {
-
-    switch (category) {
-
-        case "koks":
-            return "🧪";
-
-        case "opium":
-            return "🌿";
-
-        case "pilz":
-            return "🍄";
-
-        default:
-            return "📍";
-
-    }
-
-}
-
-
-/* =========================================================
-   FARBE
-========================================================= */
-
-document
-    .getElementById("adminColor")
-    .addEventListener(
-        "input",
-        function() {
-
-            document
-                .getElementById(
-                    "adminColorText"
-                )
-                .value = this.value;
-
-        }
-    );
-
-document
-    .getElementById("adminColorText")
-    .addEventListener(
-        "input",
-        function() {
-
-            const value = this.value;
-
-            if (
-                /^#[0-9A-Fa-f]{6}$/.test(
-                    value
-                )
-            ) {
-
-                document
-                    .getElementById(
-                        "adminColor"
-                    )
-                    .value = value;
-
-            }
-
-        }
-    );
 
 
 /* =========================================================
@@ -1491,15 +1629,8 @@ function createNewPoint() {
         <div class="marker-dot"></div>
 
         <div class="marker-label">
-
-            <span class="marker-label-icon">
-                🧪
-            </span>
-
-            <span>
-                Neuer Punkt
-            </span>
-
+            <span class="marker-label-icon"></span>
+            <span>Neuer Punkt</span>
         </div>
     `;
 
@@ -1508,6 +1639,7 @@ function createNewPoint() {
     selectMarker(marker);
 
     updateLegend();
+    updateWorldTransform();
 
     const name =
         document.getElementById(
@@ -1594,6 +1726,7 @@ function duplicateSelectedPoint() {
 
     updateLegend();
     updateAdminPanel();
+    updateWorldTransform();
 
 }
 
@@ -1824,6 +1957,7 @@ function startRealtimeSync() {
                     }
 
                     updateLegend();
+                    updateWorldTransform();
 
                 }
             )
@@ -1888,6 +2022,7 @@ async function loadSavedPositions() {
         databaseReady = true;
 
         updateLegend();
+        updateWorldTransform();
 
         startRealtimeSync();
 
@@ -1941,11 +2076,6 @@ async function savePositions() {
                     ".marker-label span:last-child"
                 );
 
-            const icon =
-                marker.querySelector(
-                    ".marker-label-icon"
-                );
-
             const color =
                 normalizeColor(
                     marker.style.getPropertyValue(
@@ -1986,9 +2116,9 @@ async function savePositions() {
                         : "Punkt",
 
                 icon:
-                    icon
-                        ? icon.textContent.trim()
-                        : "📍"
+                    getCategoryIcon(
+                        marker.dataset.category
+                    )
 
             });
 
@@ -2065,13 +2195,6 @@ async function savePositions() {
                 status: error?.status
             }
         );
-
-        /*
-         * WICHTIG:
-         * Hier wird jetzt NICHT mehr nur die alte
-         * allgemeine Meldung angezeigt.
-         * Der tatsächliche Supabase-Fehler wird ausgegeben.
-         */
 
         alert(
             "SPEICHERN FEHLGESCHLAGEN\n\n" +
@@ -2212,7 +2335,9 @@ function createMarkerFromData(point) {
 
     marker.style.setProperty(
         "--marker-color",
-        point.color || "#28c7c0"
+        normalizeColor(
+            point.color || "#28c7c0"
+        )
     );
 
     marker.innerHTML = `
@@ -2223,9 +2348,7 @@ function createMarkerFromData(point) {
 
         <div class="marker-label">
 
-            <span class="marker-label-icon">
-                ${point.icon || "📍"}
-            </span>
+            <span class="marker-label-icon"></span>
 
             <span></span>
 
@@ -2251,6 +2374,31 @@ function createMarkerFromData(point) {
 
 
 /* =========================================================
+   KATEGORIE-ICON
+========================================================= */
+
+function getCategoryIcon(category) {
+
+    switch (category) {
+
+        case "koks":
+            return "🧪";
+
+        case "opium":
+            return "🌿";
+
+        case "pilz":
+            return "🍄";
+
+        default:
+            return "📍";
+
+    }
+
+}
+
+
+/* =========================================================
    KATEGORIEN
 ========================================================= */
 
@@ -2264,7 +2412,7 @@ function toggleCategory(category) {
 
     document
         .querySelectorAll(
-            `.marker[data-category="${category}"]`
+            `.marker[data-category="${CSS.escape(category)}"]`
         )
         .forEach(
             function(marker) {
@@ -2279,7 +2427,7 @@ function toggleCategory(category) {
 
     const legend =
         document.querySelector(
-            `.legend-item[data-category="${category}"]`
+            `.legend-item[data-category="${CSS.escape(category)}"]`
         );
 
     if (legend) {
@@ -2375,7 +2523,6 @@ document.addEventListener(
 
     }
 );
-
 
 async function enterAdminMode() {
 
@@ -2509,7 +2656,7 @@ function exitAdminMode() {
 
 
 /* =========================================================
-   FARBE NORMALISIEREN
+   FARBE
 ========================================================= */
 
 function normalizeColor(color) {
@@ -2532,7 +2679,7 @@ function normalizeColor(color) {
 
     const rgb =
         color.match(
-            /^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i
+            /^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i
         );
 
     if (rgb) {
@@ -2570,6 +2717,52 @@ function normalizeColor(color) {
 
 
 /* =========================================================
+   FARBE SYNCHRONISIEREN
+========================================================= */
+
+document
+    .getElementById("adminColor")
+    .addEventListener(
+        "input",
+        function() {
+
+            document
+                .getElementById(
+                    "adminColorText"
+                )
+                .value = this.value;
+
+        }
+    );
+
+document
+    .getElementById("adminColorText")
+    .addEventListener(
+        "input",
+        function() {
+
+            const value =
+                this.value;
+
+            if (
+                /^#[0-9A-Fa-f]{6}$/.test(
+                    value
+                )
+            ) {
+
+                document
+                    .getElementById(
+                        "adminColor"
+                    )
+                    .value = value;
+
+            }
+
+        }
+    );
+
+
+/* =========================================================
    START
 ========================================================= */
 
@@ -2583,4 +2776,3 @@ updateLegend();
 
 </body>
 </html>
-```
