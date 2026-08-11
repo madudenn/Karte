@@ -163,10 +163,10 @@
 
         .marker-dot {
             position: absolute;
-            left: -4px;
-            top: -4px;
-            width: 8px;
-            height: 8px;
+            left: -3px;
+            top: -3px;
+            width: 6px;
+            height: 6px;
 
             border-radius: 50%;
             background: var(--marker-color);
@@ -1131,29 +1131,63 @@ function updateMarkerScale() {
         document.querySelectorAll(".marker");
 
     /*
-     * Grundgröße bleibt ungefähr gleich.
-     * Bei größerem Karten-Zoom wächst der Marker nicht mit.
+     * ZOOMABHÄNGIGE MARKERGRÖSSE
+     *
+     * Weit herausgezoomt:
+     * - Marker werden deutlich größer, damit man die Positionen
+     *   auch auf der Gesamtkarte sofort erkennt.
+     *
+     * Nah herangezoomt:
+     * - Marker werden bewusst sehr dezent und klein.
+     * - Der .marker-dot bleibt dabei immer der exakte Mittelpunkt.
+     * - Dadurch wird die eigentliche Kartenposition nicht verdeckt.
+     *
+     * Die sichtbare Größe wird gegen den Karten-Zoom kompensiert,
+     * aber absichtlich NICHT mehr auf eine konstante Bildschirmgröße
+     * begrenzt. Stattdessen wird zwischen einer großen Fernansicht
+     * und einer kleinen Nahansicht weich interpoliert.
      */
 
-    const inverseScale =
-        Math.min(
-            4,
-            Math.max(
-                0.75,
-                1 / scale
+    const minZoom = 0.05;
+    const maxZoom = 3.0;
+
+    // 0 = weit draußen, 1 = sehr nah.
+    const zoomProgress =
+        Math.max(
+            0,
+            Math.min(
+                1,
+                (scale - minZoom) / (maxZoom - minZoom)
             )
         );
+
+    // Nichtlinear: Im entfernten Bereich bleiben die Marker lange groß,
+    // erst beim Heranzoomen werden sie deutlich kleiner.
+    const eased =
+        zoomProgress * zoomProgress;
+
+    // Zielgröße auf dem Bildschirm in Pixeln:
+    // weit: ca. 30px, nah: ca. 7px.
+    const farScreenSize = 30;
+    const nearScreenSize = 7;
+
+    const targetScreenSize =
+        farScreenSize +
+        (nearScreenSize - farScreenSize) * eased;
+
+    const markerScale =
+        targetScreenSize / (18 * scale);
 
     markers.forEach(function(marker) {
 
         marker.style.setProperty(
             "--marker-scale",
-            inverseScale
+            markerScale
         );
 
         marker.style.setProperty(
             "--marker-hover-scale",
-            inverseScale * 1.16
+            markerScale * 1.12
         );
 
     });
