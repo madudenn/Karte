@@ -852,6 +852,16 @@
             <div class="legend-count">0</div>
         </div>
 
+        <div class="legend-item" data-category="moonshine" onclick="toggleCategory('moonshine')">
+            <div class="legend-icon">☾</div><div class="legend-name">Moonshine</div><div class="legend-count">0</div>
+        </div>
+        <div class="legend-item" data-category="express_munition" onclick="toggleCategory('express_munition')">
+            <div class="legend-icon">▣</div><div class="legend-name">Express-Munition</div><div class="legend-count">0</div>
+        </div>
+        <div class="legend-item" data-category="schwarzmarkt" onclick="toggleCategory('schwarzmarkt')">
+            <div class="legend-icon">✦</div><div class="legend-name">Schwarzmarkt</div><div class="legend-count">0</div>
+        </div>
+
     </div>
 
     <div class="controls">
@@ -945,6 +955,12 @@
                     ⬡ Pilz
                 </option>
 
+                <option value="moonshine">☾ Moonshine</option>
+                <option value="express_munition">▣ Express-Munition</option>
+                <option value="schwarzmarkt">✦ Schwarzmarkt</option>
+
+            
+
             </select>
 
             <label for="adminColor">
@@ -967,6 +983,9 @@
                 >
 
             </div>
+
+            <label for="adminNote">Notiz</label>
+            <textarea id="adminNote" placeholder="Notiz zu diesem Routenpunkt..." rows="4"></textarea>
 
         </div>
 
@@ -1095,7 +1114,10 @@ let offsetY = 0;
 const categoryState = {
     koks: true,
     opium: true,
-    pilz: true
+    pilz: true,
+    moonshine: true,
+    express_munition: true,
+    schwarzmarkt: true
 };
 
 let adminMode = false;
@@ -1581,6 +1603,9 @@ function updateAdminPanel() {
             "adminColorText"
         );
 
+    const note =
+        document.getElementById("adminNote");
+
     if (!selectedMarker) {
 
         selected.textContent =
@@ -1595,6 +1620,9 @@ function updateAdminPanel() {
 
         color.value = "#28c7c0";
         colorText.value = "#28c7c0";
+
+        if (note)
+            note.value = "";
 
         return;
 
@@ -1650,6 +1678,9 @@ function updateAdminPanel() {
     color.value = markerColor;
     colorText.value = markerColor;
 
+    if (note)
+        note.value = selectedMarker.dataset.note || "";
+
 }
 
 
@@ -1685,6 +1716,12 @@ function applyPointChanges() {
             .value
             .trim();
 
+    const noteElement =
+        document.getElementById("adminNote");
+
+    const note =
+        noteElement ? noteElement.value.trim() : "";
+
     if (!name) {
 
         alert(
@@ -1707,6 +1744,8 @@ function applyPointChanges() {
 
     selectedMarker.dataset.category =
         category;
+
+    selectedMarker.dataset.note = note;
 
     updateMarkerCategoryClass(
         selectedMarker
@@ -1743,7 +1782,10 @@ function updateMarkerCategoryClass(marker) {
     marker.classList.remove(
         "category-koks",
         "category-opium",
-        "category-pilz"
+        "category-pilz",
+        "category-moonshine",
+        "category-express_munition",
+        "category-schwarzmarkt"
     );
 
     const category =
@@ -1768,6 +1810,16 @@ function getCategoryIcon(category) {
 
         case "pilz":
             return "⬡";
+
+        
+        case "moonshine":
+            return "☾";
+
+        case "express_munition":
+            return "▣";
+
+        case "schwarzmarkt":
+            return "✦";
 
         default:
             return "●";
@@ -1843,6 +1895,8 @@ function createNewPoint() {
 
     marker.dataset.category =
         "koks";
+
+    marker.dataset.note = "";
 
     const rect =
         viewport.getBoundingClientRect();
@@ -2258,7 +2312,7 @@ async function loadSavedPositions() {
             await supabaseClient
                 .from("route_points")
                 .select(
-                    "id,name,category,x,y,color,icon,updated_at"
+                    "id,name,category,x,y,color,icon,note,updated_at"
                 )
                 .order("id");
 
@@ -2380,6 +2434,9 @@ async function savePositions() {
                     label
                         ? label.textContent.trim()
                         : "Punkt",
+
+                note:
+                    marker.dataset.note || "",
 
                 /*
                  * Bestehendes DB-Feld bleibt erhalten.
@@ -2597,6 +2654,8 @@ function createMarkerFromData(point) {
 
     marker.dataset.category =
         point.category || "koks";
+
+    marker.dataset.note = point.note || "";
 
     updateMarkerCategoryClass(
         marker
@@ -3097,6 +3156,20 @@ updateLegend();
             7% 75%,
             7% 25%
         );
+    }
+
+    .marker[data-category="moonshine"] .marker-dot {
+        border-radius: 50%;
+        border-style: dashed;
+    }
+
+    .marker[data-category="express_munition"] .marker-dot {
+        border-radius: 2px;
+        transform: rotate(45deg);
+    }
+
+    .marker[data-category="schwarzmarkt"] .marker-dot {
+        clip-path: polygon(50% 0%,61% 35%,100% 50%,61% 65%,50% 100%,39% 65%,0% 50%,39% 35%);
     }
 
     /*
@@ -3665,6 +3738,16 @@ updateLegend();
         <div class="legend-count">0</div>
     </div>
 
+        <div class="legend-item" data-category="moonshine" onclick="toggleCategory('moonshine')">
+            <div class="legend-icon">☾</div><div class="legend-name">Moonshine</div><div class="legend-count">0</div>
+        </div>
+        <div class="legend-item" data-category="express_munition" onclick="toggleCategory('express_munition')">
+            <div class="legend-icon">▣</div><div class="legend-name">Express-Munition</div><div class="legend-count">0</div>
+        </div>
+        <div class="legend-item" data-category="schwarzmarkt" onclick="toggleCategory('schwarzmarkt')">
+            <div class="legend-icon">✦</div><div class="legend-name">Schwarzmarkt</div><div class="legend-count">0</div>
+        </div>
+
 </div>
 
 <div class="controls">
@@ -3758,6 +3841,12 @@ updateLegend();
                 🍄 Pilz
             </option>
 
+                <option value="moonshine">☾ Moonshine</option>
+                <option value="express_munition">▣ Express-Munition</option>
+                <option value="schwarzmarkt">✦ Schwarzmarkt</option>
+
+            
+
         </select>
 
         <label for="adminColor">
@@ -3780,6 +3869,9 @@ updateLegend();
             >
 
         </div>
+
+            <label for="adminNote">Notiz</label>
+            <textarea id="adminNote" placeholder="Notiz zu diesem Routenpunkt..." rows="4"></textarea>
 
     </div>
 
@@ -3908,7 +4000,10 @@ let offsetY = 0;
 const categoryState = {
     koks: true,
     opium: true,
-    pilz: true
+    pilz: true,
+    moonshine: true,
+    express_munition: true,
+    schwarzmarkt: true
 };
 
 let adminMode = false;
@@ -4326,6 +4421,9 @@ function updateAdminPanel() {
             "adminColorText"
         );
 
+    const note =
+        document.getElementById("adminNote");
+
     if (!selectedMarker) {
 
         selected.textContent =
@@ -4340,6 +4438,9 @@ function updateAdminPanel() {
 
         color.value = "#28c7c0";
         colorText.value = "#28c7c0";
+
+        if (note)
+            note.value = "";
 
         return;
     }
@@ -4394,6 +4495,9 @@ function updateAdminPanel() {
     color.value = markerColor;
     colorText.value = markerColor;
 
+    if (note)
+        note.value = selectedMarker.dataset.note || "";
+
 }
 
 
@@ -4429,6 +4533,12 @@ function applyPointChanges() {
             .value
             .trim();
 
+    const noteElement =
+        document.getElementById("adminNote");
+
+    const note =
+        noteElement ? noteElement.value.trim() : "";
+
     if (!name) {
 
         alert(
@@ -4451,6 +4561,8 @@ function applyPointChanges() {
 
     selectedMarker.dataset.category =
         category;
+
+    selectedMarker.dataset.note = note;
 
     selectedMarker.style.setProperty(
         "--marker-color",
@@ -4493,6 +4605,8 @@ function createNewPoint() {
 
     marker.dataset.category =
         "koks";
+
+    marker.dataset.note = "";
 
     const rect =
         viewport.getBoundingClientRect();
@@ -4900,7 +5014,7 @@ async function loadSavedPositions() {
             await supabaseClient
                 .from("route_points")
                 .select(
-                    "id,name,category,x,y,color,icon,updated_at"
+                    "id,name,category,x,y,color,icon,note,updated_at"
                 )
                 .order("id");
 
@@ -5018,6 +5132,9 @@ async function savePositions() {
                     label
                         ? label.textContent.trim()
                         : "Punkt",
+
+                note:
+                    marker.dataset.note || "",
 
                 icon:
                     getCategoryIcon(
@@ -5231,6 +5348,8 @@ function createMarkerFromData(point) {
     marker.dataset.category =
         point.category || "koks";
 
+    marker.dataset.note = point.note || "";
+
     marker.style.left =
         point.x + "px";
 
@@ -5293,6 +5412,16 @@ function getCategoryIcon(category) {
 
         case "pilz":
             return "🍄";
+
+        
+        case "moonshine":
+            return "☾";
+
+        case "express_munition":
+            return "▣";
+
+        case "schwarzmarkt":
+            return "✦";
 
         default:
             return "📍";
