@@ -491,6 +491,29 @@
         }
 
         /* =========================================================
+           NOTIZEN
+        ========================================================= */
+        .notes-toggle { position:absolute; top:88px; left:25px; z-index:120; min-width:150px; height:42px; padding:0 15px; display:flex; align-items:center; justify-content:center; gap:8px; border:1px solid rgba(255,255,255,.09); border-radius:9px; background:rgba(10,13,18,.91); color:white; font:inherit; font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; box-shadow:0 12px 40px rgba(0,0,0,.35); backdrop-filter:blur(12px); transition:background .15s ease,transform .15s ease; }
+        .notes-toggle:hover { background:rgba(255,255,255,.08); transform:translateY(-1px); }
+        .notes-toggle.active { background:rgba(40,199,192,.16); border-color:rgba(40,199,192,.35); }
+        .notes-toggle-count { min-width:20px; height:20px; padding:0 5px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; background:rgba(255,255,255,.08); color:rgba(255,255,255,.65); font-size:11px; }
+        .notes-panel { position:absolute; top:140px; left:25px; z-index:119; width:330px; max-height:calc(100vh - 110px); padding:15px; overflow:hidden; display:none; flex-direction:column; border:1px solid rgba(255,255,255,.09); border-radius:10px; background:rgba(10,13,18,.94); box-shadow:0 12px 40px rgba(0,0,0,.4); backdrop-filter:blur(12px); }
+        .notes-panel.open { display:flex; }
+        .notes-panel-title { margin-bottom:4px; font-size:12px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.5); }
+        .notes-panel-subtitle { margin-bottom:12px; font-size:11px; color:rgba(255,255,255,.42); }
+        .notes-list { overflow-y:auto; padding-right:3px; }
+        .notes-list::-webkit-scrollbar { width:5px; }
+        .notes-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,.15); border-radius:5px; }
+        .note-item { margin-bottom:8px; padding:10px; border:1px solid rgba(255,255,255,.07); border-left:3px solid var(--note-color,#28c7c0); border-radius:7px; background:rgba(255,255,255,.035); cursor:pointer; }
+        .note-item:hover { background:rgba(255,255,255,.07); }
+        .note-item-name { margin-bottom:4px; font-size:13px; font-weight:700; }
+        .note-item-category { margin-bottom:6px; font-size:10px; font-weight:700; color:rgba(255,255,255,.42); text-transform:uppercase; letter-spacing:.07em; }
+        .note-item-text { white-space:pre-wrap; line-height:1.45; font-size:12px; color:rgba(255,255,255,.78); }
+        .notes-empty { padding:18px 8px; text-align:center; font-size:12px; line-height:1.5; color:rgba(255,255,255,.42); }
+        .admin-note-hint { margin-top:-4px; margin-bottom:4px; font-size:10px; line-height:1.4; color:rgba(255,255,255,.38); }
+        @media (max-width:700px) { .notes-panel { left:15px; top:132px; width:min(330px,calc(100vw - 30px)); } .notes-toggle { left:15px; top:82px; } }
+
+        /* =========================================================
            CONTROLS
         ========================================================= */
 
@@ -831,6 +854,17 @@
 
     </div>
 
+    <button class="notes-toggle" id="notesToggle" type="button" onclick="toggleNotesPanel()">
+        <span>📝 Notizen</span>
+        <span class="notes-toggle-count" id="notesToggleCount">0</span>
+    </button>
+
+    <div class="notes-panel" id="notesPanel">
+        <div class="notes-panel-title">Routen-Notizen</div>
+        <div class="notes-panel-subtitle">Notizen zu den einzelnen Routen</div>
+        <div class="notes-list" id="notesList"></div>
+    </div>
+
     <div class="legend">
 
         <div class="legend-title">
@@ -1019,8 +1053,10 @@
 
             </div>
 
-            <label for="adminNote">Notiz</label>
-            <textarea id="adminNote" placeholder="Notiz zu diesem Routenpunkt..." rows="4"></textarea>
+            <label for="adminRouteNote">Routen-Notiz</label>
+            <textarea id="adminRouteNote" placeholder="Notiz für die gesamte Route dieser Kategorie..." rows="5"></textarea>
+
+            <div class="admin-note-hint">Diese Notiz gehört zur ausgewählten Route/Kategorie und nicht zu einem einzelnen Punkt.</div>
 
         </div>
 
@@ -1028,9 +1064,20 @@
 
             <button
                 class="admin-button primary"
+                onclick="saveCategoryNote()"
+            >
+                Routen-Notiz speichern
+            </button>
+
+        </div>
+
+        <div class="admin-buttons">
+
+            <button
+                class="admin-button"
                 onclick="applyPointChanges()"
             >
-                Änderungen übernehmen
+                Punktänderungen übernehmen
             </button>
 
         </div>
@@ -1638,9 +1685,6 @@ function updateAdminPanel() {
             "adminColorText"
         );
 
-    const note =
-        document.getElementById("adminNote");
-
     if (!selectedMarker) {
 
         selected.textContent =
@@ -1656,9 +1700,7 @@ function updateAdminPanel() {
         color.value = "#28c7c0";
         colorText.value = "#28c7c0";
 
-        if (note)
-            note.value = "";
-
+        updateAdminRouteNote();
         return;
 
     }
@@ -1713,8 +1755,7 @@ function updateAdminPanel() {
     color.value = markerColor;
     colorText.value = markerColor;
 
-    if (note)
-        note.value = selectedMarker.dataset.note || "";
+    updateAdminRouteNote();
 
 }
 
@@ -1751,12 +1792,6 @@ function applyPointChanges() {
             .value
             .trim();
 
-    const noteElement =
-        document.getElementById("adminNote");
-
-    const note =
-        noteElement ? noteElement.value.trim() : "";
-
     if (!name) {
 
         alert(
@@ -1783,8 +1818,6 @@ function applyPointChanges() {
     updateMarkerCategoryClass(
         selectedMarker
     );
-
-    selectedMarker.dataset.note = note;
 
     updateMarkerCategoryClass(
         selectedMarker
@@ -1986,6 +2019,13 @@ function createNewPoint() {
 
         </div>
     `;
+
+    updateMarkerCategoryClass(marker);
+
+    const categoryIcon = marker.querySelector(".marker-label-icon");
+    if (categoryIcon) {
+        categoryIcon.textContent = getCategoryIcon(marker.dataset.category);
+    }
 
     world.appendChild(marker);
 
@@ -2265,6 +2305,23 @@ function startRealtimeSync() {
                     )
                         return;
 
+                    const pointId = String(point.id);
+
+                    if (pointId.startsWith("__category_note__")) {
+                        const category = pointId.substring("__category_note__".length);
+
+                        if (Object.prototype.hasOwnProperty.call(categoryNotes, category)) {
+                            setCategoryNote(
+                                category,
+                                payload.eventType === "DELETE" ? "" : (point.note || "")
+                            );
+                            updateNotesPanel();
+                            updateAdminRouteNote();
+                        }
+
+                        return;
+                    }
+
                     if (
                         payload.eventType ===
                         "DELETE"
@@ -2312,6 +2369,7 @@ function startRealtimeSync() {
                     }
 
                     updateLegend();
+                    updateNotesPanel();
                     updateMarkerScale();
 
                 }
@@ -2366,17 +2424,24 @@ async function loadSavedPositions() {
                 }
             );
 
-        data.forEach(
-            function(point) {
-                createMarkerFromData(
-                    point
-                );
-            }
-        );
+        await loadCategoryNotes(data);
+
+        data
+            .filter(function(point) {
+                return !String(point.id).startsWith("__category_note__");
+            })
+            .forEach(
+                function(point) {
+                    createMarkerFromData(
+                        point
+                    );
+                }
+            );
 
         databaseReady = true;
 
         updateLegend();
+        updateNotesPanel();
         updateMarkerScale();
 
         startRealtimeSync();
@@ -2737,6 +2802,8 @@ function createMarkerFromData(point) {
         );
 
     if (categoryIcon) {
+        categoryIcon.textContent =
+            getCategoryIcon(marker.dataset.category);
         categoryIcon.title =
             getCategoryIcon(marker.dataset.category);
     }
@@ -2759,6 +2826,215 @@ function createMarkerFromData(point) {
 
 }
 
+
+/* =========================================================
+   ROUTEN-NOTIZEN
+========================================================= */
+
+const categoryNames = {
+    koks: "Koks",
+    opium: "Opium",
+    pilz: "Pilz",
+    moonshine: "Moonshine",
+    express_munition: "Express-Munition",
+    schwarzmarkt: "Schwarzmarkt"
+};
+
+const categoryNotes = {
+    koks: "",
+    opium: "",
+    pilz: "",
+    moonshine: "",
+    express_munition: "",
+    schwarzmarkt: ""
+};
+
+function categoryNoteId(category) {
+    return "__category_note__" + category;
+}
+
+function setCategoryNote(category, note) {
+    if (!Object.prototype.hasOwnProperty.call(categoryNotes, category)) return;
+    categoryNotes[category] = String(note || "").trim();
+}
+
+function toggleNotesPanel() {
+    const panel = document.getElementById("notesPanel");
+    const button = document.getElementById("notesToggle");
+    if (!panel || !button) return;
+
+    const isOpen = panel.classList.toggle("open");
+    button.classList.toggle("active", isOpen);
+
+    if (isOpen) updateNotesPanel();
+}
+
+function updateNotesPanel() {
+    const list = document.getElementById("notesList");
+    const countElement = document.getElementById("notesToggleCount");
+    if (!list) return;
+
+    const notes = Object.keys(categoryNames)
+        .filter(function(category) {
+            return (categoryNotes[category] || "").trim() !== "";
+        })
+        .map(function(category) {
+            const legend = document.querySelector(
+                `.legend-item[data-category="${CSS.escape(category)}"]`
+            );
+            const icon = legend ? legend.querySelector(".legend-icon")?.textContent.trim() : getCategoryIcon(category);
+            return {
+                category: category,
+                name: categoryNames[category],
+                icon: icon || getCategoryIcon(category),
+                note: categoryNotes[category]
+            };
+        });
+
+    if (countElement) countElement.textContent = notes.length;
+
+    if (!notes.length) {
+        list.innerHTML = `<div class="notes-empty">Für die Routen sind aktuell keine Notizen hinterlegt.</div>`;
+        return;
+    }
+
+    list.innerHTML = notes.map(function(item) {
+        return `
+            <div class="note-item" data-category="${escapeHtml(item.category)}">
+                <div class="note-item-name">${escapeHtml(item.icon)} ${escapeHtml(item.name)}</div>
+                <div class="note-item-text">${escapeHtml(item.note)}</div>
+            </div>`;
+    }).join("");
+
+    list.querySelectorAll(".note-item").forEach(function(item) {
+        item.addEventListener("click", function() {
+            const category = item.dataset.category;
+            if (!category) return;
+
+            if (categoryState[category] === false) {
+                toggleCategory(category);
+            }
+
+            const panel = document.getElementById("notesPanel");
+            const button = document.getElementById("notesToggle");
+            if (panel) panel.classList.remove("open");
+            if (button) button.classList.remove("active");
+
+            const legend = document.querySelector(
+                `.legend-item[data-category="${CSS.escape(category)}"]`
+            );
+            if (legend) {
+                legend.animate(
+                    [
+                        { transform: "scale(1)" },
+                        { transform: "scale(1.03)" },
+                        { transform: "scale(1)" }
+                    ],
+                    { duration: 350 }
+                );
+            }
+        });
+    });
+}
+
+async function loadCategoryNotes(rows) {
+    Object.keys(categoryNotes).forEach(function(category) {
+        categoryNotes[category] = "";
+    });
+
+    (rows || []).forEach(function(row) {
+        if (!row || !row.id) return;
+        const id = String(row.id);
+        if (!id.startsWith("__category_note__")) return;
+
+        const category = id.substring("__category_note__".length);
+        if (Object.prototype.hasOwnProperty.call(categoryNotes, category)) {
+            setCategoryNote(category, row.note || "");
+        }
+    });
+
+    updateNotesPanel();
+    updateAdminRouteNote();
+}
+
+function updateAdminRouteNote() {
+    const categoryElement = document.getElementById("adminCategory");
+    const noteElement = document.getElementById("adminRouteNote");
+    if (!categoryElement || !noteElement) return;
+
+    const category = categoryElement.value || "koks";
+    noteElement.value = categoryNotes[category] || "";
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    const categoryElement = document.getElementById("adminCategory");
+    if (categoryElement) {
+        categoryElement.addEventListener("change", updateAdminRouteNote);
+    }
+});
+
+async function saveCategoryNote() {
+    const categoryElement = document.getElementById("adminCategory");
+    const noteElement = document.getElementById("adminRouteNote");
+    if (!categoryElement || !noteElement) return;
+
+    const category = categoryElement.value || "koks";
+    const note = noteElement.value.trim();
+
+    if (!databaseReady) {
+        alert("Die Datenbank ist noch nicht bereit. Bitte kurz warten und erneut versuchen.");
+        return;
+    }
+
+    const id = categoryNoteId(category);
+
+    try {
+        if (!note) {
+            const { error } = await supabaseClient
+                .from("route_points")
+                .delete()
+                .eq("id", id);
+
+            if (error) throw error;
+            setCategoryNote(category, "");
+        } else {
+            const { data, error } = await supabaseClient
+                .from("route_points")
+                .upsert({
+                    id: id,
+                    name: "__CATEGORY_NOTE__",
+                    category: category,
+                    x: 0,
+                    y: 0,
+                    color: "#28c7c0",
+                    icon: getCategoryIcon(category),
+                    note: note
+                }, { onConflict: "id" })
+                .select();
+
+            if (error) throw error;
+            setCategoryNote(category, note);
+        }
+
+        updateNotesPanel();
+        updateAdminRouteNote();
+    } catch (error) {
+        console.error("Routen-Notiz konnte nicht gespeichert werden.", error);
+        alert(
+            "Routen-Notiz konnte nicht gespeichert werden.\n\n" +
+            (error?.message || "Unbekannter Fehler")
+        );
+    }
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
 /* =========================================================
    KATEGORIEN
