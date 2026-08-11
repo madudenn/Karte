@@ -227,6 +227,11 @@
             );
         }
 
+        .marker.category-senega_wurzel .marker-ring {
+            border-radius: 50%;
+            border-style: dashed;
+        }
+
         /*
          * Hover:
          * Der gesamte Marker wird nur leicht größer.
@@ -385,13 +390,19 @@
            LEGENDE
         ========================================================= */
 
-        .legend {
+        .legend-container {
             position: absolute;
             top: 25px;
             right: 25px;
             z-index: 100;
-
             width: 230px;
+        }
+
+        .legend {
+            position: relative;
+            top: auto;
+            right: auto;
+            width: auto;
             padding: 15px;
 
             border-radius: 10px;
@@ -473,6 +484,39 @@
             font-size: 12px;
 
             color: rgba(255, 255, 255, 0.5);
+        }
+
+        .legend-secondary {
+            margin-top: 8px;
+            padding-top: 8px;
+        }
+
+        .legend-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 7px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .legend-actions button {
+            min-height: 32px;
+            padding: 6px 7px;
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.045);
+            color: rgba(255, 255, 255, 0.85);
+            cursor: pointer;
+            font: inherit;
+            font-size: 10px;
+            font-weight: 600;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .legend-actions button:hover {
+            background: rgba(255, 255, 255, 0.09);
+            border-color: rgba(255, 255, 255, 0.16);
         }
 
         /* =========================================================
@@ -820,6 +864,8 @@
 
     </div>
 
+    <div class="legend-container">
+
     <div class="legend">
 
         <div class="legend-title">
@@ -865,6 +911,21 @@
         <div class="legend-item" data-category="schwarzmarkt" onclick="toggleCategory('schwarzmarkt')">
             <div class="legend-icon">✦</div><div class="legend-name">Schwarzmarkt</div><div class="legend-count">0</div>
         </div>
+
+        <div class="legend-actions">
+            <button type="button" onclick="setAllCategories(false)">Alles ausblenden</button>
+            <button type="button" onclick="setAllCategories(true)">Alles einblenden</button>
+        </div>
+
+    </div>
+
+    <div class="legend legend-secondary">
+        <div class="legend-item" data-category="senega_wurzel" onclick="toggleCategory('senega_wurzel')">
+            <div class="legend-icon">🌿</div>
+            <div class="legend-name">Senega-Wurzel</div>
+            <div class="legend-count">0</div>
+        </div>
+    </div>
 
     </div>
 
@@ -961,7 +1022,8 @@
 
                 <option value="moonshine">☾ Moonshine</option>
                 <option value="express_munition">▣ Express-Munition</option>
-                <option value="schwarzmarkt">✦ Schwarzmarkt</option>
+                <option value="schwarzmarkt">✦ Schwarzmarkt</option> 
+                <option value="senega_wurzel">🌿 Senega-Wurzel</option>
 
             
 
@@ -1116,12 +1178,13 @@ let offsetX = 0;
 let offsetY = 0;
 
 const categoryState = {
-    koks: true,
-    opium: true,
-    pilz: true,
-    moonshine: true,
-    express_munition: true,
-    schwarzmarkt: true
+    koks: false,
+    opium: false,
+    pilz: false,
+    moonshine: false,
+    express_munition: false,
+    schwarzmarkt: false,
+    senega_wurzel: false
 };
 
 let adminMode = false;
@@ -1789,7 +1852,8 @@ function updateMarkerCategoryClass(marker) {
         "category-pilz",
         "category-moonshine",
         "category-express_munition",
-        "category-schwarzmarkt"
+        "category-schwarzmarkt",
+        "category-senega_wurzel"
     );
 
     const category =
@@ -1824,6 +1888,9 @@ function getCategoryIcon(category) {
 
         case "schwarzmarkt":
             return "✦";
+
+        case "senega_wurzel":
+            return "🌿";
 
         default:
             return "●";
@@ -1953,6 +2020,10 @@ function createNewPoint() {
     `;
 
     world.appendChild(marker);
+
+    if (categoryState[marker.dataset.category] === false) {
+        marker.style.display = "none";
+    }
 
     updateMarkerScale();
 
@@ -2706,6 +2777,10 @@ function createMarkerFromData(point) {
 
     world.appendChild(marker);
 
+    if (categoryState[marker.dataset.category] === false) {
+        marker.style.display = "none";
+    }
+
     updateMarkerScale();
 
 }
@@ -2720,12 +2795,19 @@ function toggleCategory(category) {
     categoryState[category] =
         !categoryState[category];
 
+    applyCategoryVisibility(category);
+
+}
+
+
+function applyCategoryVisibility(category) {
+
     const visible =
-        categoryState[category];
+        categoryState[category] === true;
 
     document
         .querySelectorAll(
-            `.marker[data-category="${category}"]`
+            `.marker[data-category="${CSS.escape(category)}"]`
         )
         .forEach(
             function(marker) {
@@ -2738,19 +2820,39 @@ function toggleCategory(category) {
             }
         );
 
-    const legend =
-        document.querySelector(
-            `.legend-item[data-category="${category}"]`
+    document
+        .querySelectorAll(
+            `.legend-item[data-category="${CSS.escape(category)}"]`
+        )
+        .forEach(
+            function(legend) {
+
+                legend.classList.toggle(
+                    "disabled",
+                    !visible
+                );
+
+            }
         );
 
-    if (legend) {
+}
 
-        legend.classList.toggle(
-            "disabled",
-            !visible
+
+function setAllCategories(visible) {
+
+    Object.keys(categoryState)
+        .forEach(
+            function(category) {
+
+                categoryState[category] =
+                    visible;
+
+                applyCategoryVisibility(
+                    category
+                );
+
+            }
         );
-
-    }
 
 }
 
@@ -2799,6 +2901,11 @@ function updateLegend() {
                         count;
 
                 }
+
+                item.classList.toggle(
+                    "disabled",
+                    categoryState[category] === false
+                );
 
             }
         );
@@ -3039,6 +3146,10 @@ resetView();
 loadSavedPositions();
 
 updateLegend();
+
+Object.keys(categoryState).forEach(function(category) {
+    applyCategoryVisibility(category);
+});
 
 </script>
 
