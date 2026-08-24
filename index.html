@@ -935,6 +935,11 @@
             <div class="legend-name">Oleander-Salbei</div>
             <div class="legend-count">0</div>
         </div>
+        <div class="legend-item" data-category="indianer_seidenpflanze" onclick="toggleCategory('indianer_seidenpflanze')">
+            <div class="legend-icon">🌿</div>
+            <div class="legend-name">Indianer Seidenpflanze</div>
+            <div class="legend-count">0</div>
+        </div>
     </div>
 
     </div>
@@ -1035,6 +1040,7 @@
                 <option value="schwarzmarkt">✦ Schwarzmarkt</option> 
                 <option value="senega_wurzel">🌿 Senega-Wurzel</option>
                 <option value="oleander_salbei">🌿 Oleander-Salbei</option>
+                <option value="indianer_seidenpflanze">🌿 Indianer Seidenpflanze</option>
 
             
 
@@ -1189,14 +1195,15 @@ let offsetX = 0;
 let offsetY = 0;
 
 const categoryState = {
-    koks: true,
-    opium: true,
-    pilz: true,
-    moonshine: true,
-    express_munition: true,
-    schwarzmarkt: true,
-    senega_wurzel: true,
-    oleander_salbei: true
+    koks: false,
+    opium: false,
+    pilz: false,
+    moonshine: false,
+    express_munition: false,
+    schwarzmarkt: false,
+    senega_wurzel: false,
+    oleander_salbei: false,
+    indianer_seidenpflanze: false
 };
 
 let adminMode = false;
@@ -1866,7 +1873,8 @@ function updateMarkerCategoryClass(marker) {
         "category-express_munition",
         "category-schwarzmarkt",
         "category-senega_wurzel",
-        "category-oleander_salbei"
+        "category-oleander_salbei",
+        "category-indianer_seidenpflanze"
     );
 
     const category =
@@ -1906,6 +1914,8 @@ function getCategoryIcon(category) {
             return "🌿";
 
         case "oleander_salbei":
+            return "🌿";
+        case "indianer_seidenpflanze":
             return "🌿";
 
         default:
