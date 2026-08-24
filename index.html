@@ -232,6 +232,11 @@
             border-style: dashed;
         }
 
+        .marker.category-oleander_salbei .marker-ring {
+            border-radius: 50%;
+            border-style: dashed;
+        }
+
         /*
          * Hover:
          * Der gesamte Marker wird nur leicht größer.
@@ -925,6 +930,11 @@
             <div class="legend-name">Senega-Wurzel</div>
             <div class="legend-count">0</div>
         </div>
+        <div class="legend-item" data-category="oleander_salbei" onclick="toggleCategory('oleander_salbei')">
+            <div class="legend-icon">🌿</div>
+            <div class="legend-name">Oleander-Salbei</div>
+            <div class="legend-count">0</div>
+        </div>
     </div>
 
     </div>
@@ -1024,6 +1034,7 @@
                 <option value="express_munition">▣ Express-Munition</option>
                 <option value="schwarzmarkt">✦ Schwarzmarkt</option> 
                 <option value="senega_wurzel">🌿 Senega-Wurzel</option>
+                <option value="oleander_salbei">🌿 Oleander-Salbei</option>
 
             
 
@@ -1178,13 +1189,14 @@ let offsetX = 0;
 let offsetY = 0;
 
 const categoryState = {
-    koks: false,
-    opium: false,
-    pilz: false,
-    moonshine: false,
-    express_munition: false,
-    schwarzmarkt: false,
-    senega_wurzel: false
+    koks: true,
+    opium: true,
+    pilz: true,
+    moonshine: true,
+    express_munition: true,
+    schwarzmarkt: true,
+    senega_wurzel: true,
+    oleander_salbei: true
 };
 
 let adminMode = false;
@@ -1853,7 +1865,8 @@ function updateMarkerCategoryClass(marker) {
         "category-moonshine",
         "category-express_munition",
         "category-schwarzmarkt",
-        "category-senega_wurzel"
+        "category-senega_wurzel",
+        "category-oleander_salbei"
     );
 
     const category =
@@ -1890,6 +1903,9 @@ function getCategoryIcon(category) {
             return "✦";
 
         case "senega_wurzel":
+            return "🌿";
+
+        case "oleander_salbei":
             return "🌿";
 
         default:
@@ -3862,6 +3878,12 @@ Object.keys(categoryState).forEach(function(category) {
         <div class="legend-item" data-category="schwarzmarkt" onclick="toggleCategory('schwarzmarkt')">
             <div class="legend-icon">✦</div><div class="legend-name">Schwarzmarkt</div><div class="legend-count">0</div>
         </div>
+        <div class="legend-item" data-category="senega_wurzel" onclick="toggleCategory('senega_wurzel')">
+            <div class="legend-icon">🌿</div><div class="legend-name">Senega-Wurzel</div><div class="legend-count">0</div>
+        </div>
+        <div class="legend-item" data-category="oleander_salbei" onclick="toggleCategory('oleander_salbei')">
+            <div class="legend-icon">🌿</div><div class="legend-name">Oleander-Salbei</div><div class="legend-count">0</div>
+        </div>
 
 </div>
 
@@ -3959,6 +3981,8 @@ Object.keys(categoryState).forEach(function(category) {
                 <option value="moonshine">☾ Moonshine</option>
                 <option value="express_munition">▣ Express-Munition</option>
                 <option value="schwarzmarkt">✦ Schwarzmarkt</option>
+                <option value="senega_wurzel">🌿 Senega-Wurzel</option>
+                <option value="oleander_salbei">🌿 Oleander-Salbei</option>
 
             
 
@@ -4118,7 +4142,9 @@ const categoryState = {
     pilz: true,
     moonshine: true,
     express_munition: true,
-    schwarzmarkt: true
+    schwarzmarkt: true,
+    senega_wurzel: true,
+    oleander_salbei: true
 };
 
 let adminMode = false;
